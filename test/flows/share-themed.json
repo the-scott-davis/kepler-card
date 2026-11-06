@@ -1,0 +1,60 @@
+{
+  "baseUrl": "http://127.0.0.1:4173",
+  "serve": {
+    "command": "PORT=4173 npm run preview",
+    "readyUrl": "http://127.0.0.1:4173/preview/index.html",
+    "port": 4173
+  },
+  "steps": [
+    {
+      "name": "Open the preview",
+      "action": "goto",
+      "url": "/preview/index.html"
+    },
+    {
+      "name": "Root is drawn",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"router\"]"
+    },
+    {
+      "name": "Reveal finishes",
+      "action": "expectHidden",
+      "selector": "kepler-card .wrap[data-reveal=\"playing\"]"
+    },
+    {
+      "name": "Theme on",
+      "action": "click",
+      "selector": "#theme"
+    },
+    {
+      "name": "Turn filters on",
+      "action": "click",
+      "selector": "#filters"
+    },
+    {
+      "name": "Pick the den chip",
+      "action": "click",
+      "selector": "kepler-card button.chip[data-tag=\"area:den\"]"
+    },
+    {
+      "name": "Share image",
+      "action": "click",
+      "selector": "#sharepng"
+    },
+    {
+      "name": "Image is shown",
+      "action": "expectVisible",
+      "selector": "#shareout img"
+    },
+    {
+      "name": "Share video",
+      "action": "click",
+      "selector": "#sharevideo"
+    },
+    {
+      "name": "Video is shown",
+      "action": "expectVisible",
+      "selector": "#shareout video"
+    }
+  ]
+}
