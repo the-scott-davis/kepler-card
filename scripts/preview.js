@@ -1,7 +1,8 @@
-import { createReadStream, statSync } from "node:fs";
+import { createReadStream } from "node:fs";
 import { createServer } from "node:http";
-import { dirname, extname, join, resolve, sep } from "node:path";
+import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { hostAllowed, resolveServable } from "./preview-guard.js";
 
 const root = resolve(join(dirname(fileURLToPath(import.meta.url)), ".."));
 const port = Number(process.env.PORT) || 4173;
@@ -15,6 +16,10 @@ const TYPES = {
 };
 
 const server = createServer((req, res) => {
+  if (!hostAllowed(req.headers.host, port)) {
+    res.writeHead(403).end("Forbidden");
+    return;
+  }
   let path;
   try {
     path = decodeURIComponent(new URL(req.url, "http://127.0.0.1").pathname);
@@ -26,15 +31,8 @@ const server = createServer((req, res) => {
     res.writeHead(400).end("Bad request");
     return;
   }
-  let file = resolve(join(root, path));
-  if (file !== root && file.indexOf(root + sep) !== 0) {
-    res.writeHead(403).end("Forbidden");
-    return;
-  }
-  try {
-    if (statSync(file).isDirectory()) file = join(file, "index.html");
-    if (!statSync(file).isFile()) throw new Error("not a file");
-  } catch (e) {
+  const file = resolveServable(root, path);
+  if (!file) {
     res.writeHead(404).end("Not found");
     return;
   }

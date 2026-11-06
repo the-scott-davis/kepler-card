@@ -165,3 +165,67 @@ test("shareSvg of an empty map is empty", () => {
   assert.equal(el.shareSvg(), "");
   el.remove();
 });
+
+const sr = (el, sel) => el.shadowRoot.querySelector(sel);
+function pointer(el, type) {
+  const e = new MouseEvent(type, { clientX: 5, clientY: 5, bubbles: true, cancelable: true, buttons: 1 });
+  Object.defineProperty(e, "pointerId", { value: 1 });
+  Object.defineProperty(e, "pointerType", { value: "touch" });
+  sr(el, "svg.map").dispatchEvent(e);
+}
+
+test("turning zoom off while zoomed resets the view and touch scrolling", () => {
+  const el = ended(mount(NODES(), { zoom: true }));
+  sr(el, ".zin").click();
+  assert.ok(el._view);
+  assert.equal(sr(el, ".wrap").style.touchAction, "none");
+  el.options = { zoom: false };
+  assert.equal(el._view, null);
+  assert.equal(sr(el, "svg.map").getAttribute("viewBox"), "-70.0 -40.0 1140.0 1090.0");
+  assert.equal(sr(el, ".wrap").style.touchAction, "auto");
+  el.remove();
+});
+
+test("a plain tap does not hold redraws", () => {
+  const el = ended(mount(NODES(), {}));
+  pointer(el, "pointerdown");
+  assert.equal(el._gesturing, true);
+  pointer(el, "pointerup");
+  assert.equal(el._gesturing, false);
+  assert.equal(el._gestureAt, -Infinity);
+  const before = el._drawCount;
+  el.nodes = NODES().concat([{ key: "x", parent: "r", label: "X" }]);
+  assert.equal(el._drawCount, before + 1);
+  el.remove();
+});
+
+test("a redraw held during a tap is released when the tap ends", () => {
+  const el = ended(mount(NODES(), {}));
+  pointer(el, "pointerdown");
+  const before = el._drawCount;
+  el.nodes = NODES().concat([{ key: "y", parent: "r", label: "Y" }]);
+  assert.equal(el._drawCount, before);
+  pointer(el, "pointerup");
+  assert.equal(el._drawCount, before + 1);
+  assert.equal(el._timer, null);
+  el.remove();
+});
+
+test("disconnect mid-gesture clears gesture state; reattach redraws and zoom works", () => {
+  const el = ended(mount(NODES(), {}));
+  sr(el, ".zin").click();
+  pointer(el, "pointerdown");
+  assert.equal(el._gesturing, true);
+  el.remove();
+  assert.equal(el._gesturing, false);
+  assert.equal(el._gestureAt, -Infinity);
+  assert.equal(el._timer, null);
+  assert.equal(el._view, null);
+  el.nodes = NODES().concat([{ key: "z", parent: "r", label: "Z" }]);
+  document.body.appendChild(el);
+  ended(el);
+  assert.ok(keys(el).includes("z"));
+  sr(el, ".zin").click();
+  assert.ok(el._view);
+  el.remove();
+});

@@ -152,12 +152,17 @@ export class KeplerElement extends HTMLElement {
 
   connectedCallback() {
     if (!this._shell) this._buildShell();
+    if (this._shell) this._wireZoom();
     if (this._dirty) this._requestDraw();
   }
 
   disconnectedCallback() {
     this._endReveal();
     if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    if (this._zoom) { this._zoom.destroy(); this._zoom = null; this._zoomOn = null; }
+    this._view = null;
+    this._gesturing = false;
+    this._gestureAt = -Infinity;
     if (this._share) this._share.close();
   }
 
@@ -228,6 +233,7 @@ export class KeplerElement extends HTMLElement {
     const on = this._opts.zoom !== false;
     if (this._zoom && this._zoomOn === on) return;
     if (this._zoom) this._zoom.destroy();
+    if (!on) this._view = null;
     this._zoomOn = on;
     this._zoom = wireZoom({
       wrap: this._q(".wrap"), svg: this._q("svg.map"), ctl: on ? this._q(".zoomctl") : null,
@@ -235,7 +241,13 @@ export class KeplerElement extends HTMLElement {
       getView: () => this._view,
       setView: (v) => { this._view = v; },
       onGestureStart: () => { this._gesturing = true; },
-      onGestureEnd: () => { this._gesturing = false; this._gestureAt = Date.now(); },
+      onGestureEnd: (acted) => {
+        this._gesturing = false;
+        if (acted) { this._gestureAt = Date.now(); return; }
+        // A plain tap holds nothing back: release any redraw that was waiting on it.
+        if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+        if (this._dirty) this._requestDraw();
+      },
     });
     this._q(".zoomctl").hidden = !on;
     this._zoom.apply();

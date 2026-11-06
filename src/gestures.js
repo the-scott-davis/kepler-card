@@ -90,7 +90,7 @@ export function wireZoom(o) {
     if (!anchor) { g = null; return; }
     g = { view: getView() || null, inv, m, anchor, moved: !!(g && g.moved), pinched: !!(g && g.pinched) || fingers.size > 1, captured: !!(g && g.captured) };
   };
-  const finish = () => { if (active) { active = false; onEnd(); } };
+  const finish = (acted) => { if (active) { active = false; onEnd(!!acted); } };
 
   on(svg, "pointerdown", (ev) => {
     if (ev.pointerType === "mouse" && ev.button !== 0) return;
@@ -122,7 +122,7 @@ export function wireZoom(o) {
         }
       } else lastTap = { t: ts, x: ev.clientX, y: ev.clientY };
     }
-    finish();
+    finish(acted);
   };
 
   on(svg, "pointermove", (ev) => {
