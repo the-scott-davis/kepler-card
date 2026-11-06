@@ -23,7 +23,7 @@ NetOrbit citations give line numbers in `custom_components/netorbit/frontend/net
 - Kind: Proposed, a node with children is always laid out as a hub whatever its `kind`.
 - Kind: Proposed, a `kind` hub node with no children keeps a gap slot on the device ring, as NetOrbit gives an empty hub (line 118).
 - Extra: `extra` is a separate optional top-level map that Kepler never reads and hands back in the tap detail as `detail.node.extra`.
-- Tree rule: Proposed, with several parentless nodes the first is the root and the rest attach to it, which matches NetOrbit taking the first parentless hub as root (line 1013) and attaching hubs with no known parent to the root (line 88).
+- Tree rule: Proposed, the root is the first parentless node with kind hub, or the first parentless node if none has it, and the other parentless nodes attach to the root; NetOrbit differs only in that it takes the first parentless hub (line 1013), falls back to the first hub (line 1018), never picks a non-hub as root, and attaches hubs with no known parent to the root (line 88).
 - Tree rule: Proposed, a parent key matching no node attaches to the root, which matches NetOrbit (lines 88 and 92).
 - Tree rule: Proposed, if no node is parentless the first node in the list becomes the root and its parent is ignored.
 - Tree rule: Proposed, a node naming itself as parent counts as a cycle.
@@ -52,7 +52,7 @@ router                              status: online   icon: mdi:router-wireless  
 - Proposed: Kepler always fires `kepler-node-tap` from the `kepler-card` element, bubbling and composed, with `detail: { key, node }`, where `node` is a copy of the node.
 - Proposed: `kepler-node-tap` is cancelable, and a host that calls `preventDefault` on it stops `hass-more-info` for that tap.
 - Proposed: a host uses `preventDefault` for edit mode and for any node type it wants to handle itself.
-- Proposed: `hass-more-info` with `detail: { entityId }` fires only when the host turns on a `more_info` option and the node has an `entity` field, and it fires after `kepler-node-tap`.
+- Proposed: `hass-more-info` with `detail: { entityId }`, bubbling and composed as NetOrbit dispatches it (line 1800), fires only when the host turns on a `more_info` option and the node has an `entity` field, and it fires after `kepler-node-tap`.
 - NetOrbit fires `hass-more-info` only when the node has an entity (line 1800).
 - NetOrbit does not always fire `hass-more-info` on a tap, because it opens its own popups instead in edit mode and for its new, more and suggested nodes (lines 1795-1799).
 - Proposed: the Lovelace card turns `more_info` on, and a host cancels `kepler-node-tap` to suppress the dialog where NetOrbit suppresses it today.
@@ -68,7 +68,7 @@ router                              status: online   icon: mdi:router-wireless  
 - Proposed defaults for the status variables are NetOrbit's colours: online `#34d399`, recent `#fbbf24`, stale `#f87171`, new `#c084fc` and unknown `#64748b` (lines 7-13).
 - Proposed default for `--kepler-font-family` is the Home Assistant `--ha-font-family-body` variable, with NetOrbit's fallback `Roboto, system-ui, sans-serif` (lines 1122 and 1134).
 - Proposed default for `--kepler-ring-color` is NetOrbit's ring stroke `rgba(148,163,184,.07)` (line 1135).
-- Proposed default for `--kepler-link-color` that a link uses its child node's status colour unless the host sets `--kepler-link-color`, because NetOrbit's CSS sets no link colour (lines 1136-1140) and passes the child's status colour to each link as its stroke (lines 239, 252 and 257, colour from line 216).
+- Proposed default for `--kepler-link-color` is unset, and while it is unset a link uses its child node's status colour, because NetOrbit's CSS sets no link colour (lines 1136-1140) and passes the child's status colour to each link as its stroke (lines 239, 252 and 257, colour from line 216).
 - Proposed default for `--kepler-highlight-color` is NetOrbit's highlight stroke `#60a5fa` (line 1167).
 - Proposed default for `--kepler-tooltip-background` is NetOrbit's tooltip background `rgba(15,23,42,.96)` (line 1176).
 - Proposed default for `--kepler-tooltip-text-color` is NetOrbit's tooltip text `#e2e8f0` (line 1176).
