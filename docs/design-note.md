@@ -31,6 +31,7 @@ NetOrbit citations give line numbers in `custom_components/netorbit/frontend/net
 - Tree rule: Proposed, a node in a cycle attaches to the root, which matches NetOrbit re-parenting cycles to the root (line 123).
 - Tree rule: Proposed, a duplicate key keeps the first node and logs a console warning, which differs from NetOrbit, where a later hub with the same key replaces the earlier one (line 1012).
 - Tree rule: Proposed, a `tags` value that is not an array of strings is ignored, and NetOrbit has no tags to compare (no match to cite).
+- Relationships: `parent` is the only relationship, so a node has one parent and sits in one place, and a parent can have any number of children. A later optional field can add other relationships without changing this contract.
 
 ```text
 router                              status: online   icon: mdi:router-wireless  label: Router
@@ -38,6 +39,14 @@ router                              status: online   icon: mdi:router-wireless  
   hub-zigbee      parent: router    status: recent   icon: mdi:zigbee           label: Zigbee hub
     door-sensor   parent: hub-zigbee status: stale    icon: mdi:door             label: Door sensor
 ```
+
+## Data source
+
+- The contract is an array of node objects in the shape above, set through the element's `nodes` property.
+- Kepler does not care where the array comes from. NetOrbit discovers the network and populates it, and any other integration can build the same array however it likes.
+- The Lovelace card has two options for the array: `nodes`, an array in the card config, and `nodes_entity`, the id of one entity whose attribute `nodes_attribute` (default `nodes`) holds the array and is read on every `hass` update.
+- `nodes_entity` wins when both options are set, and a missing entity or attribute draws the empty map.
+- The entity read sits in the Lovelace layer, so the drawing code never sees `hass` data, and that one named entity is all the card reads.
 
 ## What Kepler owns and what a host owns
 
@@ -72,7 +81,7 @@ router                              status: online   icon: mdi:router-wireless  
 - Proposed default for `--kepler-highlight-color` is NetOrbit's highlight stroke `#60a5fa` (line 1167).
 - Proposed default for `--kepler-tooltip-background` is NetOrbit's tooltip background `rgba(15,23,42,.96)` (line 1176).
 - Proposed default for `--kepler-tooltip-text-color` is NetOrbit's tooltip text `#e2e8f0` (line 1176).
-- Proposed: shared images and video read the same computed variables as the live view.
+- Proposed: shared images and video read the same computed variables as the live view. This is a new choice with no NetOrbit precedent, because NetOrbit's share image and video use hard-coded colours.
 
 ## Older-browser rule
 
@@ -84,7 +93,7 @@ router                              status: online   icon: mdi:router-wireless  
 
 ## Packaging
 
-- One source ships both a web component and a Lovelace card, as NetOrbit does with one file that registers the element and pushes a `window.customCards` entry (lines 2211-2221).
+- One source ships both a web component and a Lovelace card, as NetOrbit does with one file that registers the element and pushes a `window.customCards` entry (lines 2219-2228).
 - Decided plan is that NetOrbit will build Kepler in a pinned release.
 - NetOrbit has no reference to Kepler yet, per a search of the NetOrbit repo on 2026-11-05, and the frontend file has no mention of Kepler.
 - Proposed: NetOrbit's build checks out a Kepler git tag, runs Kepler's build and includes the output, and never tracks a branch.
@@ -102,7 +111,7 @@ router                              status: online   icon: mdi:router-wireless  
 - Proposed: a `filters` option turns filters on, and they are off by default.
 - Proposed: Kepler shows the tag chips itself when `filters` is on, built from the tags in the tree.
 - Proposed: a host can preset the selection with a `selected_tags` option.
-- Proposed rule 1: a node matches if it has any selected tag, and while no tag is selected every node is visible.
+- Proposed rule 1: a tag holding a colon is `group:value`, split on the first colon, so `topology:zigbee` is the chip `zigbee` in the `topology` group, and a tag with no colon, or with nothing either side of the colon, is a plain tag. Plain tags form one group of their own. A node matches when, for every group with a selected chip, it has at least one selected tag from that group, so picks within a group mean either and picks across groups mean both. While no tag is selected every node is visible.
 - Proposed rule 2: a node is visible if it matches, or has a visible descendant, or is the root.
 - Proposed rule 3: everything else is hidden, including untagged nodes while any tag is selected.
 - Proposed: hidden nodes leave no gap, because layout reflows over visible nodes.
