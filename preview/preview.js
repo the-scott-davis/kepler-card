@@ -74,6 +74,7 @@ function mount() {
   if (lovelaceMode()) {
     logCustomCards();
     applyConfig();
+    el.hass = makeHass(SAMPLES[current].nodes);
   } else {
     applyOptions();
     el.nodes = SAMPLES[current].nodes;
