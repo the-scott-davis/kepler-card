@@ -1,0 +1,64 @@
+{
+  "baseUrl": "http://127.0.0.1:4173",
+  "serve": {
+    "command": "PORT=4173 npm run preview",
+    "readyUrl": "http://127.0.0.1:4173/preview/index.html",
+    "port": 4173
+  },
+  "steps": [
+    {
+      "name": "Open the preview",
+      "action": "goto",
+      "url": "/preview/index.html"
+    },
+    {
+      "name": "Choose the lovelace host",
+      "action": "select",
+      "selector": "#host",
+      "value": "lovelace"
+    },
+    {
+      "name": "Card entry is logged",
+      "action": "expectText",
+      "selector": "#log",
+      "text": "customCards kepler-card"
+    },
+    {
+      "name": "Map draws",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"router\"]"
+    },
+    {
+      "name": "Reveal finishes",
+      "action": "expectHidden",
+      "selector": "kepler-card .wrap[data-reveal=\"playing\"]"
+    },
+    {
+      "name": "Tap a device with an entity",
+      "action": "click",
+      "selector": "kepler-card g.node[data-key=\"nas\"]"
+    },
+    {
+      "name": "Tap event is logged",
+      "action": "expectText",
+      "selector": "#log",
+      "text": "kepler-node-tap"
+    },
+    {
+      "name": "More info is logged",
+      "action": "expectText",
+      "selector": "#log",
+      "text": "hass-more-info"
+    },
+    {
+      "name": "Replace nodes",
+      "action": "click",
+      "selector": "#replace"
+    },
+    {
+      "name": "New node appears",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"pixel-phone\"]"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "baseUrl": "http://127.0.0.1:4173",
+  "serve": {
+    "command": "PORT=4173 npm run preview",
+    "readyUrl": "http://127.0.0.1:4173/preview/index.html",
+    "port": 4173
+  },
+  "steps": [
+    {
+      "name": "Open the preview",
+      "action": "goto",
+      "url": "/preview/index.html"
+    },
+    {
+      "name": "Root is drawn",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"router\"]"
+    },
+    {
+      "name": "Reveal finishes",
+      "action": "expectHidden",
+      "selector": "kepler-card .wrap[data-reveal=\"playing\"]"
+    },
+    {
+      "name": "Choose the broken sample",
+      "action": "select",
+      "selector": "#sample",
+      "value": "broken"
+    },
+    {
+      "name": "Map draws",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"root\"]"
+    },
+    {
+      "name": "Duplicate key is warned about",
+      "action": "expectConsole",
+      "text": "duplicate node key"
+    }
+  ]
+}

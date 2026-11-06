@@ -1,0 +1,73 @@
+{
+  "baseUrl": "http://127.0.0.1:4173",
+  "serve": {
+    "command": "PORT=4173 npm run preview",
+    "readyUrl": "http://127.0.0.1:4173/preview/index.html",
+    "port": 4173
+  },
+  "steps": [
+    {
+      "name": "Open the preview",
+      "action": "goto",
+      "url": "/preview/index.html"
+    },
+    {
+      "name": "Root is drawn",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"router\"]"
+    },
+    {
+      "name": "Reveal finishes",
+      "action": "expectHidden",
+      "selector": "kepler-card .wrap[data-reveal=\"playing\"]"
+    },
+    {
+      "name": "Turn more_info on",
+      "action": "click",
+      "selector": "#moreinfo"
+    },
+    {
+      "name": "Tap a device with an entity",
+      "action": "click",
+      "selector": "kepler-card g.node[data-key=\"nas\"]"
+    },
+    {
+      "name": "Tap event is logged",
+      "action": "expectText",
+      "selector": "#log",
+      "text": "kepler-node-tap"
+    },
+    {
+      "name": "More info event is logged",
+      "action": "expectText",
+      "selector": "#log",
+      "text": "hass-more-info"
+    },
+    {
+      "name": "Clear the log",
+      "action": "click",
+      "selector": "#clearlog"
+    },
+    {
+      "name": "Prevent default on tap",
+      "action": "click",
+      "selector": "#prevent"
+    },
+    {
+      "name": "Tap again",
+      "action": "click",
+      "selector": "kepler-card g.node[data-key=\"nas\"]"
+    },
+    {
+      "name": "Tap event is logged again",
+      "action": "expectText",
+      "selector": "#log",
+      "text": "kepler-node-tap"
+    },
+    {
+      "name": "No more info event",
+      "action": "expectHidden",
+      "selector": "#log div:has-text(\"hass-more-info\")"
+    }
+  ]
+}
