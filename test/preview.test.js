@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { snapshotNodes, buildTree } from "../src/tree.js";
 import { parseTag } from "../src/filters.js";
-import { basic, basicChanged, deep, deepChanged, broken } from "../preview/samples.js";
+import { home, homeChanged, SAMPLES, basic, basicChanged, deep, deepChanged, broken } from "../preview/samples.js";
 
 const html = readFileSync(new URL("../preview/index.html", import.meta.url), "utf8");
 
@@ -67,4 +67,22 @@ test("broken logs the duplicate warning and yields a tree", () => {
   assert.ok(tree.nodes.c1 && tree.nodes.c2 && tree.nodes.self && tree.nodes.orphan);
   assert.equal(tree.nodes.orphan.parent, "root");
   assert.equal(tree.nodes.orphan.status, "unknown");
+});
+
+test("home is the default sample with 41 nodes in four tiers", () => {
+  assert.equal(Object.keys(SAMPLES)[0], "home");
+  assert.match(html, /<select id="sample"><option value="home">/);
+  assert.equal(home.length, 41);
+  [home, homeChanged].forEach((s) => {
+    const snap = snapshotNodes(s);
+    assert.deepEqual(snap.warnings, []);
+    assert.equal(buildTree(snap.list, () => assert.fail("unexpected warning")).root, "router");
+  });
+  const tree = buildTree(snapshotNodes(home).list);
+  const leaves = Object.keys(tree.nodes).filter((k) => tree.nodes[k].children.length === 0);
+  const hubs = Object.keys(tree.nodes).length - leaves.length;
+  assert.equal(hubs, 7);
+  const counts = {};
+  leaves.forEach((k) => { counts[tree.nodes[k].source.status] = (counts[tree.nodes[k].source.status] || 0) + 1; });
+  assert.deepEqual(counts, { online: 29, recent: 2, stale: 1, new: 1, possible_hub: 1 });
 });

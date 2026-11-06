@@ -16,7 +16,10 @@ const THEME = {
 };
 let el = null;
 let flip = false;
-let current = "basic";
+let current = "home";
+let mark = null;
+let cardLogged = false;
+const NODES_ENTITY = "sensor.network_map";
 
 function log(text) {
   const row = document.createElement("div");
@@ -36,6 +39,29 @@ function applyOptions() {
   el.options = { title: "Preview", height: 700, filters: $("filters").checked, more_info: $("moreinfo").checked };
 }
 
+function lovelaceMode() {
+  return $("host").value === "lovelace";
+}
+
+function makeHass(nodes) {
+  const states = {};
+  states[NODES_ENTITY] = { attributes: { nodes } };
+  return { states };
+}
+
+// In lovelace mode this page plays a tiny Home Assistant: a config, and a hass object with one entity.
+function applyConfig() {
+  el.setConfig({ type: "custom:kepler-card", title: "Preview", nodes_entity: NODES_ENTITY, filters: $("filters").checked });
+}
+
+function logCustomCards() {
+  if (cardLogged || !Array.isArray(window.customCards)) return;
+  if (window.customCards.some((c) => c && c.type === "kepler-card")) {
+    cardLogged = true;
+    log("customCards kepler-card");
+  }
+}
+
 function mount() {
   if (el) el.remove();
   el = document.createElement("kepler-card");
@@ -45,8 +71,13 @@ function mount() {
   });
   el.addEventListener("hass-more-info", (e) => log("hass-more-info " + JSON.stringify(e.detail)));
   applyTheme();
-  applyOptions();
-  el.nodes = SAMPLES[current].nodes;
+  if (lovelaceMode()) {
+    logCustomCards();
+    applyConfig();
+  } else {
+    applyOptions();
+    el.nodes = SAMPLES[current].nodes;
+  }
   $("stage").appendChild(el);
   flip = false;
   $("brokennote").hidden = current !== "broken";
@@ -65,20 +96,44 @@ async function share(kind) {
     const url = URL.createObjectURL(blob);
     const m = document.createElement(kind === "png" ? "img" : "video");
     m.src = url;
-    if (kind === "video") { m.controls = true; m.muted = true; }
+    if (kind === "video") {
+      m.controls = true;
+      m.muted = true;
+      // Best effort: show a late frame, so a screenshot is not the first, empty one.
+      m.addEventListener("loadedmetadata", () => {
+        try { m.currentTime = isFinite(m.duration) ? Math.max(0, m.duration - 0.2) : 1e9; } catch (e) { /* ignore */ }
+      });
+    }
     showResult(m);
   } catch (e) {
     showResult(document.createTextNode("Share failed: " + (e && e.message ? e.message : e)));
   }
 }
 
+function currentView() {
+  const svg = el && el.shadowRoot ? el.shadowRoot.querySelector("svg.map") : null;
+  return svg ? svg.getAttribute("viewBox") : null;
+}
+
+function updateViewState() {
+  $("viewstate").textContent = mark !== null && currentView() === mark ? "view same" : "view changed";
+}
+
 $("sample").addEventListener("change", () => { current = $("sample").value; mount(); });
+$("host").addEventListener("change", mount);
 $("replace").addEventListener("click", () => {
   flip = !flip;
-  el.nodes = flip ? SAMPLES[current].changed : SAMPLES[current].nodes;
+  const nodes = flip ? SAMPLES[current].changed : SAMPLES[current].nodes;
+  if (lovelaceMode()) {
+    el.hass = makeHass(nodes);
+  } else {
+    el.nodes = nodes;
+  }
 });
-$("filters").addEventListener("change", applyOptions);
-$("moreinfo").addEventListener("change", applyOptions);
+$("filters").addEventListener("change", () => { if (lovelaceMode()) applyConfig(); else applyOptions(); });
+$("moreinfo").addEventListener("change", () => { if (!lovelaceMode()) applyOptions(); });
+$("markview").addEventListener("click", () => { mark = currentView(); updateViewState(); });
+setInterval(updateViewState, 200);
 $("theme").addEventListener("change", applyTheme);
 $("sharepng").addEventListener("click", () => share("png"));
 $("sharevideo").addEventListener("click", () => share("video"));

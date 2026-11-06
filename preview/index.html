@@ -20,15 +20,23 @@
   <section id="stage"></section>
   <aside>
     <fieldset><legend>Sample</legend>
-      <select id="sample"><option value="basic">basic</option><option value="deep">deep</option><option value="broken">broken</option></select>
+      <select id="sample"><option value="home">home</option><option value="basic">basic</option><option value="deep">deep</option><option value="broken">broken</option></select>
       <button id="replace" type="button">Replace nodes</button>
       <p id="brokennote" hidden>The broken sample's warnings are in the browser console.</p>
+    </fieldset>
+    <fieldset><legend>Host</legend>
+      <select id="host"><option value="element">element</option><option value="lovelace">lovelace</option></select>
+      <p>Lovelace mode plays a tiny Home Assistant: setConfig, then a hass object with one entity.</p>
     </fieldset>
     <fieldset><legend>Options</legend>
       <label><input type="checkbox" id="filters"> filters</label>
       <label><input type="checkbox" id="theme"> theme</label>
       <label><input type="checkbox" id="moreinfo"> more_info</label>
       <label><input type="checkbox" id="prevent"> preventDefault on tap</label>
+    </fieldset>
+    <fieldset><legend>View</legend>
+      <button id="markview" type="button">Mark view</button>
+      <span id="viewstate">view changed</span>
     </fieldset>
     <fieldset><legend>Share</legend>
       <button id="sharepng" type="button">Share image</button>
