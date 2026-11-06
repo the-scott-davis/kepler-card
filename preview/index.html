@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kepler preview</title>
+  <style>
+    body { margin: 0; font: 14px system-ui, sans-serif; background: #1e293b; color: #e2e8f0; }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; padding: 16px; }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+    fieldset { border: 1px solid #475569; margin: 0 0 12px; padding: 8px 12px; }
+    label, button, select { margin: 2px 8px 2px 0; }
+    #log { height: 180px; overflow: auto; background: #0f172a; padding: 6px; font: 12px ui-monospace, monospace; white-space: pre-wrap; }
+    #shareout img, #shareout video { max-width: 100%; }
+    ul { padding-left: 18px; }
+  </style>
+</head>
+<body>
+<main>
+  <section id="stage"></section>
+  <aside>
+    <fieldset><legend>Sample</legend>
+      <select id="sample"><option value="basic">basic</option><option value="deep">deep</option><option value="broken">broken</option></select>
+      <button id="replace" type="button">Replace nodes</button>
+      <p id="brokennote" hidden>The broken sample's warnings are in the browser console.</p>
+    </fieldset>
+    <fieldset><legend>Options</legend>
+      <label><input type="checkbox" id="filters"> filters</label>
+      <label><input type="checkbox" id="theme"> theme</label>
+      <label><input type="checkbox" id="moreinfo"> more_info</label>
+      <label><input type="checkbox" id="prevent"> preventDefault on tap</label>
+    </fieldset>
+    <fieldset><legend>Share</legend>
+      <button id="sharepng" type="button">Share image</button>
+      <button id="sharevideo" type="button">Share video</button>
+      <div id="shareout"></div>
+    </fieldset>
+    <fieldset><legend>Event log</legend>
+      <div id="log"></div>
+      <button id="clearlog" type="button">Clear</button>
+    </fieldset>
+    <fieldset><legend>Manual checks</legend>
+      <ul>
+        <li>Basic: the reveal plays, hubs sit inside the device ring, zoom and pan work.</li>
+        <li>Zoom, pan, pick a tag, press Replace nodes: view and filter stay, no reveal replay.</li>
+        <li>Deep: tiers are readable; pick a topology and a floor chip, only nodes with both remain.</li>
+        <li>Filters on: pick and clear a tag; filters off shows no chips.</li>
+        <li>Tap a node with an entity and more_info on: kepler-node-tap then hass-more-info in the log; with preventDefault, no hass-more-info.</li>
+        <li>Theme on: background, statuses, link and tooltip change.</li>
+        <li>Share image and video with a filter active show only the filtered view.</li>
+        <li>Broken: the map still draws; console shows the duplicate-key warning.</li>
+      </ul>
+    </fieldset>
+  </aside>
+</main>
+<script src="/preview/ha-icon-stub.js"></script>
+<script src="/kepler-card.js"></script>
+<script type="module" src="/preview/preview.js"></script>
+</body>
+</html>
