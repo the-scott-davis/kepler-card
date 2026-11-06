@@ -2,7 +2,7 @@
 
 Kepler is an orbital map card for Home Assistant that shows Zigbee, Z-Wave, Thread and Bluetooth meshes, or any device tree, as a live radial view (source: README.md).
 This note records the design for Scott to sign off, and every detail the card leaves open is marked **Proposed** so it can be overruled at review.
-NetOrbit facts cite their source file in the NetOrbit repo, and nothing is stated about NetOrbit beyond those citations.
+NetOrbit facts cite their source file in the NetOrbit repo, and nothing is stated about NetOrbit beyond those citations, except the decided packaging plan and the finding that NetOrbit has no reference to Kepler yet.
 
 ## Data shape
 
@@ -30,27 +30,26 @@ router            parent: none      status: online   icon: mdi:router-wireless  
 ## Tap hand-off
 
 - A tap on a node hands off to the host, and Kepler shows no popup of its own.
-- Proposed event name is `hass-more-info`, a bubbling and composed CustomEvent, which is what NetOrbit dispatches for a device tap (`custom_components/netorbit/frontend/netorbit-card.js`).
-- Proposed payload is `detail: { entityId }` when the node has an entity, matching NetOrbit in the same file.
-- Proposed addition is that the detail also carries the node key so hosts without entities can identify the node.
+- Proposed, every tap fires a bubbling, composed `kepler-node-tap` CustomEvent with `detail: { key, node }`.
+- Proposed, a node with an entity also fires `hass-more-info` with `detail: { entityId }`, as NetOrbit does (`custom_components/netorbit/frontend/netorbit-card.js`).
+- A node with no entity never fires `hass-more-info`, because NetOrbit only dispatches it when the node has an entity.
 - Hover tooltips are separate from the tap and do not hand off.
 
 ## Theming
 
 - Kepler takes its look from CSS custom properties that a host can set on the element.
-- Proposed names are `--kepler-background`, `--kepler-text-color`, `--kepler-status-online`, `--kepler-status-recent`, `--kepler-status-stale`, `--kepler-status-unknown` and `--kepler-font-family`.
+- Proposed names are `--kepler-background`, `--kepler-text-color`, `--kepler-status-online`, `--kepler-status-recent`, `--kepler-status-stale`, `--kepler-status-new`, `--kepler-status-unknown` and `--kepler-font-family`.
 - Proposed default for the font is the Home Assistant `--ha-font-family-body` variable, which is the only host variable NetOrbit reads (`custom_components/netorbit/frontend/netorbit-card.js`).
 - NetOrbit hard-codes its status colours and background in the same file, so Kepler's variables are new rather than copied.
 
 ## Older-browser rule
 
-- The rule is: no ?? or ?. in the JS.
-- NetOrbit states the same rule in its repo rules file, `../CLAUDE.md`.
+- The rule is: no ??, ??= or ?. in the JS.
 
 ## Packaging
 
 - One source ships both a web component and a Lovelace card, as NetOrbit does with one file that registers the element and pushes a `window.customCards` entry (`custom_components/netorbit/frontend/netorbit-card.js`).
-- NetOrbit builds Kepler in a pinned release.
+- Decided plan is that NetOrbit will build Kepler in a pinned release, and NetOrbit has no reference to Kepler yet.
 - Proposed way to reference the pin is a git release tag of this repo, with NetOrbit copying the built file from that tag and never tracking a branch.
 - Proposed element name is `kepler-card`.
 - Element name collisions are handled by a guard that checks `customElements.get` before calling `define`, which is the check NetOrbit's `noDefine` uses (`custom_components/netorbit/frontend/netorbit-card.js`).
