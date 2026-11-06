@@ -1,2 +1,3 @@
 node_modules/
 /kepler-card.js
+.env
