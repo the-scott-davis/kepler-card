@@ -385,6 +385,8 @@ export class KeplerElement extends HTMLElement {
       });
     };
     frame(0);
+    const revealWrap = this._q(".wrap");
+    if (revealWrap) revealWrap.setAttribute("data-reveal", "playing");
     this._revealing = true;
     const run = ++this._revealRun;
     const t0 = performance.now();
@@ -394,6 +396,7 @@ export class KeplerElement extends HTMLElement {
       nodes.forEach((n) => { n.el.removeAttribute("transform"); n.el.style.opacity = ""; if (n.lab) n.lab.style.opacity = ""; });
       hlabels.forEach((h) => { h.style.opacity = ""; });
       radar.remove();
+      if (revealWrap) revealWrap.removeAttribute("data-reveal");
     };
     const step = () => {
       if (!this._revealing || this._revealRun !== run) return;

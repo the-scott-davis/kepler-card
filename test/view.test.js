@@ -114,6 +114,15 @@ test("reveal plays once", () => {
   el.remove();
 });
 
+test("wrap carries data-reveal only while the reveal plays", () => {
+  const el = mount(NODES());
+  const wrap = el.shadowRoot.querySelector(".wrap");
+  assert.equal(wrap.getAttribute("data-reveal"), "playing");
+  el._endReveal();
+  assert.equal(wrap.hasAttribute("data-reveal"), false);
+  el.remove();
+});
+
 test("empty map draws", () => {
   const el = mount();
   assert.equal(el._drawCount, 1);
