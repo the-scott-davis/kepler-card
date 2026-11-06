@@ -229,3 +229,26 @@ test("disconnect mid-gesture clears gesture state; reattach redraws and zoom wor
   assert.ok(el._view);
   el.remove();
 });
+
+test("a mouse press released outside the map still ends, and the window listeners go", () => {
+  const el = ended(mount(NODES(), {}));
+  const svg = sr(el, "svg.map");
+  const down = new MouseEvent("pointerdown", { clientX: 5, clientY: 5, bubbles: true, cancelable: true, buttons: 1 });
+  Object.defineProperty(down, "pointerId", { value: 7 });
+  Object.defineProperty(down, "pointerType", { value: "mouse" });
+  svg.dispatchEvent(down);
+  assert.equal(el._gesturing, true);
+  const up = new MouseEvent("pointerup", { clientX: 900, clientY: 900, bubbles: true });
+  Object.defineProperty(up, "pointerId", { value: 7 });
+  Object.defineProperty(up, "pointerType", { value: "mouse" });
+  window.dispatchEvent(up);
+  assert.equal(el._gesturing, false);
+  assert.equal(el._gestureAt, -Infinity);
+  // listener removed: a later press on another pointer id is unaffected by a stale window handler
+  svg.dispatchEvent(down);
+  assert.equal(el._gesturing, true);
+  el.remove();
+  assert.equal(el._gesturing, false);
+  window.dispatchEvent(up);
+  assert.equal(el._gesturing, false);
+});

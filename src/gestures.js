@@ -90,12 +90,23 @@ export function wireZoom(o) {
     if (!anchor) { g = null; return; }
     g = { view: getView() || null, inv, m, anchor, moved: !!(g && g.moved), pinched: !!(g && g.pinched) || fingers.size > 1, captured: !!(g && g.captured) };
   };
+  // A mouse press released outside the map never reaches the svg before capture, so watch the window while it lasts.
+  let winOff = null;
+  const unwatch = () => { if (winOff) { const f = winOff; winOff = null; f(); } };
+  const watch = () => {
+    if (winOff) return;
+    const h = (ev) => end(ev);
+    window.addEventListener("pointerup", h);
+    window.addEventListener("pointercancel", h);
+    winOff = () => { window.removeEventListener("pointerup", h); window.removeEventListener("pointercancel", h); };
+  };
   const finish = (acted) => { if (active) { active = false; onEnd(!!acted); } };
 
   on(svg, "pointerdown", (ev) => {
     if (ev.pointerType === "mouse" && ev.button !== 0) return;
     if (!fingers.size) { swallow = false; if (!active) { active = true; onStart(); } }
     fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (ev.pointerType === "mouse") watch();
     if (fingers.size > 2) return;
     begin();
   });
@@ -109,6 +120,7 @@ export function wireZoom(o) {
     const tap = !!g && !acted && ev.type === "pointerup" && !onNode;
     swallow = acted;
     g = null;
+    unwatch();
     if (tap) {
       // A second tap on the background within 350 ms zooms in there, or back out to the whole map.
       const ts = ev.timeStamp || 0;
@@ -161,6 +173,7 @@ export function wireZoom(o) {
       destroyed = true;
       cleanups.forEach((f) => f());
       cleanups.length = 0;
+      unwatch();
       fingers.clear();
       g = null;
       finish();
