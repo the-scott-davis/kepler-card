@@ -1,0 +1,134 @@
+{
+  "baseUrl": "http://127.0.0.1:4173",
+  "serve": {
+    "command": "PORT=4173 npm run preview",
+    "readyUrl": "http://127.0.0.1:4173/preview/index.html",
+    "port": 4173
+  },
+  "steps": [
+    {
+      "name": "Open the preview",
+      "action": "goto",
+      "url": "/preview/index.html"
+    },
+    {
+      "name": "Root is drawn",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"router\"]"
+    },
+    {
+      "name": "Reveal finishes",
+      "action": "expectHidden",
+      "selector": "kepler-card .wrap[data-reveal=\"playing\"]"
+    },
+    {
+      "name": "Hub router is visible",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"router\"]"
+    },
+    {
+      "name": "Hub core-switch is visible",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"core-switch\"]"
+    },
+    {
+      "name": "Hub office-switch is visible",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"office-switch\"]"
+    },
+    {
+      "name": "Hub den-ap is visible",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"den-ap\"]"
+    },
+    {
+      "name": "Hub hallway-ap is visible",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"hallway-ap\"]"
+    },
+    {
+      "name": "Hub patio-ap is visible",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"patio-ap\"]"
+    },
+    {
+      "name": "Hub new-devices is visible",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"new-devices\"]"
+    },
+    {
+      "name": "Device soundbar is visible",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"soundbar\"]"
+    },
+    {
+      "name": "Device thermostat-1f is visible",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"thermostat-1f\"]"
+    },
+    {
+      "name": "Device laptop is visible",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"laptop\"]"
+    },
+    {
+      "name": "Device sprinklers is visible",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"sprinklers\"]"
+    },
+    {
+      "name": "Device esp-005391 is visible",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"esp-005391\"]"
+    },
+    {
+      "name": "Turn more_info on",
+      "action": "click",
+      "selector": "#moreinfo"
+    },
+    {
+      "name": "Tap nas",
+      "action": "click",
+      "selector": "kepler-card g.node[data-key=\"nas\"]"
+    },
+    {
+      "name": "Log shows parent of nas",
+      "action": "expectText",
+      "selector": "#log",
+      "text": "\"parent\":\"office-switch\""
+    },
+    {
+      "name": "Tap air-purifier",
+      "action": "click",
+      "selector": "kepler-card g.node[data-key=\"air-purifier\"]"
+    },
+    {
+      "name": "Log shows parent of air-purifier",
+      "action": "expectText",
+      "selector": "#log",
+      "text": "\"parent\":\"den-ap\""
+    },
+    {
+      "name": "Tap tablet",
+      "action": "click",
+      "selector": "kepler-card g.node[data-key=\"tablet\"]"
+    },
+    {
+      "name": "Log shows parent of tablet",
+      "action": "expectText",
+      "selector": "#log",
+      "text": "\"parent\":\"hallway-ap\""
+    },
+    {
+      "name": "Tap garage-door-1",
+      "action": "click",
+      "selector": "kepler-card g.node[data-key=\"garage-door-1\"]"
+    },
+    {
+      "name": "Log shows parent of garage-door-1",
+      "action": "expectText",
+      "selector": "#log",
+      "text": "\"parent\":\"patio-ap\""
+    }
+  ]
+}

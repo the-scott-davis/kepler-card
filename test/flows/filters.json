@@ -1,0 +1,131 @@
+{
+  "baseUrl": "http://127.0.0.1:4173",
+  "serve": {
+    "command": "PORT=4173 npm run preview",
+    "readyUrl": "http://127.0.0.1:4173/preview/index.html",
+    "port": 4173
+  },
+  "steps": [
+    {
+      "name": "Open the preview",
+      "action": "goto",
+      "url": "/preview/index.html"
+    },
+    {
+      "name": "Root is drawn",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"router\"]"
+    },
+    {
+      "name": "Reveal finishes",
+      "action": "expectHidden",
+      "selector": "kepler-card .wrap[data-reveal=\"playing\"]"
+    },
+    {
+      "name": "Chips are hidden with filters off",
+      "action": "expectHidden",
+      "selector": "kepler-card button.chip[data-tag=\"area:den\"]"
+    },
+    {
+      "name": "Turn filters on",
+      "action": "click",
+      "selector": "#filters"
+    },
+    {
+      "name": "Chips are visible",
+      "action": "expectVisible",
+      "selector": "kepler-card button.chip[data-tag=\"area:den\"]"
+    },
+    {
+      "name": "Pick the den chip",
+      "action": "click",
+      "selector": "kepler-card button.chip[data-tag=\"area:den\"]"
+    },
+    {
+      "name": "Non-matching device is hidden",
+      "action": "expectHidden",
+      "selector": "kepler-card g.node[data-key=\"soundbar\"]"
+    },
+    {
+      "name": "Matching device stays",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"air-purifier\"]"
+    },
+    {
+      "name": "Its chain stays",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"core-switch\"]"
+    },
+    {
+      "name": "Clear the chip",
+      "action": "click",
+      "selector": "kepler-card button.chip[data-tag=\"area:den\"]"
+    },
+    {
+      "name": "Everything is back",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"soundbar\"]"
+    },
+    {
+      "name": "Turn filters off",
+      "action": "click",
+      "selector": "#filters"
+    },
+    {
+      "name": "Chips are hidden again",
+      "action": "expectHidden",
+      "selector": "kepler-card button.chip[data-tag=\"area:den\"]"
+    },
+    {
+      "name": "Choose the deep sample",
+      "action": "select",
+      "selector": "#sample",
+      "value": "deep"
+    },
+    {
+      "name": "Deep root is drawn",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"gw\"]"
+    },
+    {
+      "name": "Deep reveal finishes",
+      "action": "expectHidden",
+      "selector": "kepler-card .wrap[data-reveal=\"playing\"]"
+    },
+    {
+      "name": "Turn filters on",
+      "action": "click",
+      "selector": "#filters"
+    },
+    {
+      "name": "Pick the wired chip",
+      "action": "click",
+      "selector": "kepler-card button.chip[data-tag=\"topology:wired\"]"
+    },
+    {
+      "name": "Pick the upstairs chip",
+      "action": "click",
+      "selector": "kepler-card button.chip[data-tag=\"floor:up\"]"
+    },
+    {
+      "name": "Matching node stays",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"sw2\"]"
+    },
+    {
+      "name": "Its chain stays",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"sw1\"]"
+    },
+    {
+      "name": "Wired downstairs node is hidden",
+      "action": "expectHidden",
+      "selector": "kepler-card g.node[data-key=\"tv\"]"
+    },
+    {
+      "name": "Upstairs zigbee node is hidden",
+      "action": "expectHidden",
+      "selector": "kepler-card g.node[data-key=\"zb\"]"
+    }
+  ]
+}

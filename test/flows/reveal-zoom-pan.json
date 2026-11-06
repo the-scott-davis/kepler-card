@@ -1,0 +1,59 @@
+{
+  "baseUrl": "http://127.0.0.1:4173",
+  "serve": {
+    "command": "PORT=4173 npm run preview",
+    "readyUrl": "http://127.0.0.1:4173/preview/index.html",
+    "port": 4173
+  },
+  "steps": [
+    {
+      "name": "Open the preview",
+      "action": "goto",
+      "url": "/preview/index.html"
+    },
+    {
+      "name": "Reveal attribute is present",
+      "action": "expectVisible",
+      "selector": "kepler-card .wrap[data-reveal=\"playing\"]"
+    },
+    {
+      "name": "Reveal attribute goes away",
+      "action": "expectHidden",
+      "selector": "kepler-card .wrap[data-reveal=\"playing\"]"
+    },
+    {
+      "name": "Zoom in",
+      "action": "click",
+      "selector": "kepler-card .zin"
+    },
+    {
+      "name": "Card is zoomed",
+      "action": "expectVisible",
+      "selector": "kepler-card .wrap.zoomed"
+    },
+    {
+      "name": "Mark the view",
+      "action": "click",
+      "selector": "#markview"
+    },
+    {
+      "name": "View is the same",
+      "action": "expectText",
+      "selector": "#viewstate",
+      "text": "view same"
+    },
+    {
+      "name": "Drag the map",
+      "action": "drag",
+      "selector": "kepler-card svg.map",
+      "dx": -150,
+      "dy": -60
+    },
+    {
+      "name": "View changed",
+      "action": "expectText",
+      "selector": "#viewstate",
+      "text": "view changed"
+    }
+  ]
+}

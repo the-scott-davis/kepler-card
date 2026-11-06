@@ -1,0 +1,81 @@
+{
+  "baseUrl": "http://127.0.0.1:4173",
+  "serve": {
+    "command": "PORT=4173 npm run preview",
+    "readyUrl": "http://127.0.0.1:4173/preview/index.html",
+    "port": 4173
+  },
+  "steps": [
+    {
+      "name": "Open the preview",
+      "action": "goto",
+      "url": "/preview/index.html"
+    },
+    {
+      "name": "Root is drawn",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"router\"]"
+    },
+    {
+      "name": "Reveal finishes",
+      "action": "expectHidden",
+      "selector": "kepler-card .wrap[data-reveal=\"playing\"]"
+    },
+    {
+      "name": "Turn filters on",
+      "action": "click",
+      "selector": "#filters"
+    },
+    {
+      "name": "Zoom in",
+      "action": "click",
+      "selector": "kepler-card .zin"
+    },
+    {
+      "name": "Card is zoomed",
+      "action": "expectVisible",
+      "selector": "kepler-card .wrap.zoomed"
+    },
+    {
+      "name": "Pick the den chip",
+      "action": "click",
+      "selector": "kepler-card button.chip[data-tag=\"area:den\"]"
+    },
+    {
+      "name": "Chip is pressed",
+      "action": "expectVisible",
+      "selector": "kepler-card button.chip[data-tag=\"area:den\"][aria-pressed=\"true\"]"
+    },
+    {
+      "name": "Mark the view",
+      "action": "click",
+      "selector": "#markview"
+    },
+    {
+      "name": "Replace nodes",
+      "action": "click",
+      "selector": "#replace"
+    },
+    {
+      "name": "New node is visible",
+      "action": "expectVisible",
+      "selector": "kepler-card g.node[data-key=\"pixel-phone\"]"
+    },
+    {
+      "name": "View is the same",
+      "action": "expectText",
+      "selector": "#viewstate",
+      "text": "view same"
+    },
+    {
+      "name": "Chip is still pressed",
+      "action": "expectVisible",
+      "selector": "kepler-card button.chip[data-tag=\"area:den\"][aria-pressed=\"true\"]"
+    },
+    {
+      "name": "No reveal replay",
+      "action": "expectHidden",
+      "selector": "kepler-card .wrap[data-reveal=\"playing\"]"
+    }
+  ]
+}

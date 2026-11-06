@@ -1,0 +1,23 @@
+{
+  "name": "kepler-card",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Orbital map of any device tree, as a web component and a Lovelace card.",
+  "engines": {
+    "node": "^22.22.2 || >=24.15.0"
+  },
+  "scripts": {
+    "build": "node scripts/build.js",
+    "pretest": "npm run build",
+    "test": "node --test \"test/*.test.js\"",
+    "preview": "npm run build && node scripts/preview.js",
+    "test:e2e": "npm run build && node --test \"test/e2e/*.test.js\""
+  },
+  "devDependencies": {
+    "acorn": "^8.14.0",
+    "esbuild": "^0.28.2",
+    "jsdom": "^31.0.0"
+  }
+}
