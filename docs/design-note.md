@@ -6,13 +6,14 @@ NetOrbit facts cite their source file in the NetOrbit repo, and nothing is state
 
 ## Data shape
 
-- Kepler draws a tree of nodes, and each node has a key, a parent, a status, an icon, a label and optional extra fields.
+- Kepler draws a tree of nodes, and each node has a key, a parent, a status, an icon, a label, an optional entity and optional extra fields.
 - Parent: a node names its parent by key, and a node with no parent is the root (NetOrbit does the same with its `link` attribute, see `custom_components/netorbit/frontend/netorbit-card.js`).
 - Status: Proposed values are `online`, `recent`, `stale`, `new` and `unknown`, which match the NetOrbit status table in `custom_components/netorbit/frontend/netorbit-card.js`.
 - Status: Proposed rule is that any status Kepler does not know is drawn as `unknown`, as NetOrbit does in the same file.
 - Icon: an `mdi:` icon name, with Proposed fallback `mdi:lan-connect`, which is the NetOrbit fallback in `custom_components/netorbit/frontend/netorbit-card.js`.
 - Label: the text shown for the node, and the host is responsible for choosing it.
-- Extra fields: a free-form map the host may attach (for example ip, vendor or tags), which Kepler passes through and does not interpret except for the filter tag field.
+- Entity: Proposed optional field `entity`, a Home Assistant entity id that Kepler reads only to fill `entityId` in the tap hand-off.
+- Extra fields: a free-form map the host may attach (for example ip, vendor or tags), which Kepler passes through and does not interpret except for the filter tag field and the `entity` field.
 
 ```text
 router            parent: none      status: online   icon: mdi:router-wireless  label: Router
@@ -31,8 +32,8 @@ router            parent: none      status: online   icon: mdi:router-wireless  
 
 - A tap on a node hands off to the host, and Kepler shows no popup of its own.
 - Proposed, every tap fires a bubbling, composed `kepler-node-tap` CustomEvent with `detail: { key, node }`.
-- Proposed, a node with an entity also fires `hass-more-info` with `detail: { entityId }`, as NetOrbit does (`custom_components/netorbit/frontend/netorbit-card.js`).
-- A node with no entity never fires `hass-more-info`, because NetOrbit only dispatches it when the node has an entity.
+- Proposed, a node with an `entity` field also fires `hass-more-info` with `detail: { entityId }`, as NetOrbit does (`custom_components/netorbit/frontend/netorbit-card.js`).
+- A node with no `entity` field never fires `hass-more-info`, because NetOrbit only dispatches it when the node has an entity.
 - Hover tooltips are separate from the tap and do not hand off.
 
 ## Theming
