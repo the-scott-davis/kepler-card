@@ -20,15 +20,20 @@ NetOrbit citations give line numbers in `custom_components/netorbit/frontend/net
 - Entity: Proposed optional top-level field `entity`, a Home Assistant entity id that Kepler reads only to fill `entityId` in the tap hand-off.
 - Tags: Proposed optional top-level field `tags`, an array of strings that Kepler reads only for filters.
 - Kind: Proposed optional field `kind`, either `hub` or `device`, and when absent a node with children is a hub and a leaf is a device, because layout puts hubs on inner rings and devices on the outer ring (lines 80-95).
-- Extra: `extra` is a separate optional top-level map that Kepler never reads and hands back in the tap detail.
+- Kind: Proposed, a node with children is always laid out as a hub whatever its `kind`.
+- Kind: Proposed, a `kind` hub node with no children keeps a gap slot on the device ring, as NetOrbit gives an empty hub (line 118).
+- Extra: `extra` is a separate optional top-level map that Kepler never reads and hands back in the tap detail as `detail.node.extra`.
 - Tree rule: Proposed, with several parentless nodes the first is the root and the rest attach to it, which matches NetOrbit taking the first parentless hub as root (line 1013) and attaching hubs with no known parent to the root (line 88).
 - Tree rule: Proposed, a parent key matching no node attaches to the root, which matches NetOrbit (lines 88 and 92).
+- Tree rule: Proposed, if no node is parentless the first node in the list becomes the root and its parent is ignored.
+- Tree rule: Proposed, a node naming itself as parent counts as a cycle.
+- Tree rule: Proposed, an empty node list draws an empty map with no error.
 - Tree rule: Proposed, a node in a cycle attaches to the root, which matches NetOrbit re-parenting cycles to the root (line 123).
 - Tree rule: Proposed, a duplicate key keeps the first node and logs a console warning, which differs from NetOrbit, where a later hub with the same key replaces the earlier one (line 1012).
 - Tree rule: Proposed, a `tags` value that is not an array of strings is ignored, and NetOrbit has no tags to compare (no match to cite).
 
 ```text
-router            parent: none      status: online   icon: mdi:router-wireless  label: Router
+router                              status: online   icon: mdi:router-wireless  label: Router
   lamp            parent: router    status: online   icon: mdi:lightbulb        label: Lamp
   hub-zigbee      parent: router    status: recent   icon: mdi:zigbee           label: Zigbee hub
     door-sensor   parent: hub-zigbee status: stale    icon: mdi:door             label: Door sensor
@@ -45,9 +50,12 @@ router            parent: none      status: online   icon: mdi:router-wireless  
 
 - A tap on a node hands off to the host, and Kepler shows no popup of its own.
 - Proposed: Kepler always fires `kepler-node-tap` from the `kepler-card` element, bubbling and composed, with `detail: { key, node }`, where `node` is a copy of the node.
+- Proposed: `kepler-node-tap` is cancelable, and a host that calls `preventDefault` on it stops `hass-more-info` for that tap.
+- Proposed: a host uses `preventDefault` for edit mode and for any node type it wants to handle itself.
 - Proposed: `hass-more-info` with `detail: { entityId }` fires only when the host turns on a `more_info` option and the node has an `entity` field, and it fires after `kepler-node-tap`.
 - NetOrbit fires `hass-more-info` only when the node has an entity (line 1800).
-- Proposed: the Lovelace card turns `more_info` on, so Home Assistant behaves as NetOrbit does today.
+- NetOrbit does not always fire `hass-more-info` on a tap, because it opens its own popups instead in edit mode and for its new, more and suggested nodes (lines 1795-1799).
+- Proposed: the Lovelace card turns `more_info` on, and a host cancels `kepler-node-tap` to suppress the dialog where NetOrbit suppresses it today.
 - Proposed: other hosts get one event, so a host with its own popup never gets a second dialog.
 - Hover tooltips are separate from the tap and do not hand off.
 
@@ -60,7 +68,7 @@ router            parent: none      status: online   icon: mdi:router-wireless  
 - Proposed defaults for the status variables are NetOrbit's colours: online `#34d399`, recent `#fbbf24`, stale `#f87171`, new `#c084fc` and unknown `#64748b` (lines 7-13).
 - Proposed default for `--kepler-font-family` is the Home Assistant `--ha-font-family-body` variable, with NetOrbit's fallback `Roboto, system-ui, sans-serif` (lines 1122 and 1134).
 - Proposed default for `--kepler-ring-color` is NetOrbit's ring stroke `rgba(148,163,184,.07)` (line 1135).
-- Proposed default for `--kepler-link-color` is default to be set in the build, because NetOrbit sets no single link colour in its CSS (lines 1136-1140).
+- Proposed default for `--kepler-link-color` that a link uses its child node's status colour unless the host sets `--kepler-link-color`, because NetOrbit's CSS sets no link colour (lines 1136-1140) and passes the child's status colour to each link as its stroke (lines 239, 252 and 257, colour from line 216).
 - Proposed default for `--kepler-highlight-color` is NetOrbit's highlight stroke `#60a5fa` (line 1167).
 - Proposed default for `--kepler-tooltip-background` is NetOrbit's tooltip background `rgba(15,23,42,.96)` (line 1176).
 - Proposed default for `--kepler-tooltip-text-color` is NetOrbit's tooltip text `#e2e8f0` (line 1176).
@@ -92,11 +100,13 @@ router            parent: none      status: online   icon: mdi:router-wireless  
 
 - Filters live in Kepler and are tag-based.
 - Proposed: a `filters` option turns filters on, and they are off by default.
-- Proposed rule: a node matches if it has any selected tag.
-- Proposed rule: while any tag is selected, untagged nodes are hidden.
-- Proposed rule: a hidden node's descendants are hidden unless they match.
-- Proposed rule: a matching node keeps its ancestors visible.
-- Proposed rule: the root always shows.
+- Proposed: Kepler shows the tag chips itself when `filters` is on, built from the tags in the tree.
+- Proposed: a host can preset the selection with a `selected_tags` option.
+- Proposed rule 1: a node matches if it has any selected tag, and while no tag is selected every node is visible.
+- Proposed rule 2: a node is visible if it matches, or has a visible descendant, or is the root.
+- Proposed rule 3: everything else is hidden, including untagged nodes while any tag is selected.
+- Proposed: hidden nodes leave no gap, because layout reflows over visible nodes.
+- Proposed: shared images and video show the current filtered view.
 - NetOrbit has no tag filter today, so this is new behaviour (no match in the NetOrbit file).
 
 ## NetOrbit mapping
