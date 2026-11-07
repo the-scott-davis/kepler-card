@@ -104,6 +104,8 @@ async function share(kind) {
       const showControls = () => { m.controls = true; };
       m.addEventListener("seeked", showControls, { once: true });
       m.addEventListener("error", showControls, { once: true });
+      // Fallback: if the seek never completes (e.g. Infinity duration), still show controls.
+      setTimeout(showControls, 2000);
       // Best effort: show a late frame, so a screenshot is not the first, empty one.
       m.addEventListener("loadedmetadata", () => {
         try { m.currentTime = isFinite(m.duration) ? Math.max(0, m.duration - 0.2) : 1e9; } catch (e) { showControls(); }

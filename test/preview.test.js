@@ -95,5 +95,6 @@ test("share video gets its controls only after the late-frame seek ends", () => 
   assert.match(fn, /addEventListener\("seeked",\s*showControls/);
   assert.match(fn, /addEventListener\("error",\s*showControls/);
   assert.match(fn, /catch \(e\) \{ showControls\(\); \}/);
+  assert.match(fn, /setTimeout\(showControls,\s*2000\)/);
   assert.ok(fn.indexOf('"loadedmetadata"') > fn.indexOf("showControls = "));
 });
