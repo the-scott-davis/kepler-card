@@ -246,3 +246,20 @@ test("share panel renders, toggles and closes", async () => {
 test("SHARE size constants", () => {
   assert.deepEqual(SHARE, { w: 1140, h: 1220, mapY: 80 });
 });
+
+// Guard: passes on the old code too. Late filtered frames must not stroke or fill with black.
+test("late frames of a filtered tree use no black stroke or fill", () => {
+  const stubs = installShareStubs();
+  try {
+    const t = filterTree(sample(), [S.tag]);
+    const th = defaultTheme();
+    const scene = drawMap(shareTree(t, {}), { theme: th }).scene;
+    paintFrame(ctxFor(), scene, REVEAL.end, { theme: th, title: "T" });
+    const dark = (c) => /^\s*(black|transparent|#0{3,8}|rgba?\(\s*0\s*,\s*0\s*,\s*0\s*(,\s*[\d.]+\s*)?\))\s*$/i.test(String(c));
+    assert.ok(stubs.calls.strokes.length > 0);
+    assert.deepEqual(stubs.calls.strokes.filter(dark), []);
+    assert.deepEqual(stubs.calls.fills.filter(dark), []);
+    // Gradient stops (the halo's rgba(0,0,0,0) end) are not strokes or fills.
+    assert.ok(stubs.calls.gradients.some((g) => g.stops.some((s) => dark(s[1]))));
+  } finally { stubs.restore(); }
+});
