@@ -4,7 +4,7 @@ import { win } from "./dom.js";
 
 export function installShareStubs(opts) {
   opts = opts || {};
-  const calls = { fills: [], gradients: [], texts: [], recorders: [], tracks: [], urls: [], frames: 0, stops: [] };
+  const calls = { fills: [], gradients: [], texts: [], recorders: [], tracks: [], urls: [], frames: 0, stops: [], strokes: [] };
   const saved = [];
   const set = (obj, name, value) => {
     saved.push([obj, name, Object.getOwnPropertyDescriptor(obj, name)]);
@@ -14,10 +14,12 @@ export function installShareStubs(opts) {
   const makeCtx = (canvas) => {
     const ctx = { canvas, fillStyle: "", strokeStyle: "", font: "", globalAlpha: 1, lineWidth: 1, lineCap: "butt", lineJoin: "miter", textAlign: "left", textBaseline: "alphabetic" };
     const rec = () => calls.fills.push(ctx.fillStyle);
-    ["save", "restore", "translate", "scale", "rotate", "setTransform", "beginPath", "moveTo", "lineTo", "arc", "closePath", "stroke", "setLineDash", "drawImage", "strokeText", "rect", "roundRect"]
+    ["save", "restore", "translate", "scale", "rotate", "setTransform", "beginPath", "moveTo", "lineTo", "arc", "closePath", "setLineDash", "drawImage", "rect", "roundRect"]
       .forEach((n) => { ctx[n] = () => {}; });
+    ctx.stroke = () => calls.strokes.push(ctx.strokeStyle);
     ctx.fill = () => rec();
     ctx.fillRect = () => { calls.frames++; rec(); };
+    ctx.strokeText = () => calls.strokes.push(ctx.strokeStyle);
     ctx.fillText = (text) => { calls.texts.push(text); rec(); };
     ctx.createRadialGradient = () => {
       const g = { stops: [], addColorStop(o, c) { g.stops.push([o, c]); } };

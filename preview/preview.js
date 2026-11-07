@@ -98,11 +98,17 @@ async function share(kind) {
     const m = document.createElement(kind === "png" ? "img" : "video");
     m.src = url;
     if (kind === "video") {
-      m.controls = true;
       m.muted = true;
+      // Controls stay off until the late-frame seek ends: while it runs, the native
+      // controls draw a loading spinner (a dark arc) over the middle of the map.
+      const showControls = () => { m.controls = true; };
+      m.addEventListener("seeked", showControls, { once: true });
+      m.addEventListener("error", showControls, { once: true });
+      // Fallback: if the seek never completes (e.g. Infinity duration), still show controls.
+      setTimeout(showControls, 2000);
       // Best effort: show a late frame, so a screenshot is not the first, empty one.
       m.addEventListener("loadedmetadata", () => {
-        try { m.currentTime = isFinite(m.duration) ? Math.max(0, m.duration - 0.2) : 1e9; } catch (e) { /* ignore */ }
+        try { m.currentTime = isFinite(m.duration) ? Math.max(0, m.duration - 0.2) : 1e9; } catch (e) { showControls(); }
       });
     }
     showResult(m);
