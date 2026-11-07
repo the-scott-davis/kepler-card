@@ -86,3 +86,14 @@ test("home is the default sample with 41 nodes in four tiers", () => {
   leaves.forEach((k) => { counts[tree.nodes[k].source.status] = (counts[tree.nodes[k].source.status] || 0) + 1; });
   assert.deepEqual(counts, { online: 29, recent: 2, stale: 1, new: 1, possible_hub: 1 });
 });
+
+test("share video gets its controls only after the late-frame seek ends", () => {
+  const src = readFileSync(new URL("../preview/preview.js", import.meta.url), "utf8");
+  const fn = src.slice(src.indexOf("async function share("), src.indexOf("function currentView"));
+  // The native controls draw a loading spinner over the map while the seek runs.
+  assert.ok(!/m\.controls\s*=\s*true/.test(fn.replace(/const showControls = \(\) => \{[^}]*\};/, "")), "controls set outside the deferred handler");
+  assert.match(fn, /addEventListener\("seeked",\s*showControls/);
+  assert.match(fn, /addEventListener\("error",\s*showControls/);
+  assert.match(fn, /catch \(e\) \{ showControls\(\); \}/);
+  assert.ok(fn.indexOf('"loadedmetadata"') > fn.indexOf("showControls = "));
+});
