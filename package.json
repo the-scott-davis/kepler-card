@@ -16,6 +16,7 @@
     "test:e2e": "npm run build && node --test \"test/e2e/*.test.js\""
   },
   "devDependencies": {
+    "@mdi/js": "^7.4.47",
     "acorn": "^8.14.0",
     "esbuild": "^0.28.2",
     "jsdom": "^31.0.0"
