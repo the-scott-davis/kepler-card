@@ -56,7 +56,7 @@ svg.map{font-family:${cssVar("font")};width:100%;height:auto;display:block;max-h
 .node:hover .dlab{font-weight:600}
 ${statusCss(null)}
 .zoomctl{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:6px;z-index:1}
-.zoomctl button{width:32px;height:32px;padding:0;border-radius:50%;border:1px solid rgba(148,163,184,.3);background:${cssVar("tooltipBackground")};color:${text};cursor:pointer;display:flex;align-items:center;justify-content:center;font:inherit;font-size:18px;line-height:1}
+.zoomctl button{width:32px;height:32px;padding:0;border-radius:50%;border:1px solid rgba(148,163,184,.3);background:${cssVar("tooltipBackground")};color:${cssVar("tooltipText")};cursor:pointer;display:flex;align-items:center;justify-content:center;font:inherit;font-size:18px;line-height:1}
 .zoomctl button:hover{border-color:${hi}}
 .zoomctl .zfit{display:none}
 .wrap.zoomed .zoomctl .zfit{display:flex}

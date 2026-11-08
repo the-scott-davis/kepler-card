@@ -176,6 +176,21 @@ test("shareSvg of an empty map is empty", () => {
 });
 
 const sr = (el, sel) => el.shadowRoot.querySelector(sel);
+
+test("zoom buttons use the tooltip colour pair (issue #4)", () => {
+  const el = ended(mount(NODES()));
+  const css = sr(el, "style").textContent;
+  const rule = /\.zoomctl button\{([^}]*)\}/.exec(css)[1];
+  const tip = /\.tip\{([^}]*)\}/.exec(css)[1];
+  const color = "color:var(--kepler-tooltip-text-color, #e2e8f0)";
+  const bg = "background:var(--kepler-tooltip-background, rgba(15,23,42,.96))";
+  assert.ok(rule.includes(color));
+  assert.ok(rule.includes(bg));
+  assert.ok(!rule.includes("--kepler-text-color"));
+  assert.ok(tip.includes(color));
+  assert.ok(tip.includes(bg));
+  el.remove();
+});
 function pointer(el, type) {
   const e = new MouseEvent(type, { clientX: 5, clientY: 5, bubbles: true, cancelable: true, buttons: 1 });
   Object.defineProperty(e, "pointerId", { value: 1 });
