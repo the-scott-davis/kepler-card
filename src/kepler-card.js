@@ -131,18 +131,26 @@ export class KeplerElement extends HTMLElement {
   }
 
   get options() {
-    return Object.assign({}, this._opts);
+    const o = Object.assign({}, this._opts);
+    // Chip clicks change the selection, so read it back live rather than as the last preset.
+    if (Array.isArray(o.selected_tags) || this._selected.size) o.selected_tags = Array.from(this._selected);
+    return o;
   }
 
   set options(value) {
     const v = value && typeof value === "object" ? value : {};
     const next = Object.assign({}, DEFAULT_OPTIONS, v);
+    if (!Array.isArray(next.selected_tags)) next.selected_tags = undefined;
     const prev = this._opts || {};
     let changed = Object.keys(next).length !== Object.keys(prev).length ||
       Object.keys(next).some((k) => k !== "selected_tags" && next[k] !== prev[k]);
     this._opts = next;
-    if (Array.isArray(v.selected_tags)) {
-      const sel = new Set(v.selected_tags.filter((t) => typeof t === "string"));
+    // An array sets the selection. Dropping a preset the last options had clears it.
+    // With no preset before or now, chip picks stay.
+    let sel = null;
+    if (Array.isArray(next.selected_tags)) sel = new Set(next.selected_tags.filter((t) => typeof t === "string"));
+    else if (Array.isArray(prev.selected_tags)) sel = new Set();
+    if (sel) {
       if (sel.size !== this._selected.size || [...sel].some((t) => !this._selected.has(t))) changed = true;
       this._selected = sel;
     }
