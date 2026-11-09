@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   PLAIN_GROUP, parseTag, buildChips, activeSelection, matchesSelection, visibleKeys, filterTree
 } from "../src/filters.js";
+import { layoutTree } from "../src/layout.js";
 
 function mk(defs) {
   const nodes = Object.create(null);
@@ -106,4 +107,46 @@ test("a visible node with only hidden children keeps its hub kind", () => {
   assert.deepEqual(f.order, ["r", "a", "c"]);
   assert.equal(f.nodes.c.kind, "hub");
   assert.deepEqual(f.nodes.c.children, []);
+});
+
+test("filterTree marks a hub emptied by the filter", () => {
+  const f = filterTree(tree, ["floor:1"]);
+  assert.equal(f.nodes.c.emptiedByFilter, true);
+  assert.equal(f.nodes.r.emptiedByFilter, undefined);
+  assert.equal(tree.nodes.c.emptiedByFilter, undefined);
+  const g = filterTree(tree, ["floor:2"]);
+  assert.equal(g.nodes.a.emptiedByFilter, undefined);
+  assert.equal(g.nodes.r.emptiedByFilter, undefined);
+});
+
+test("a hub childless in the source is not marked", () => {
+  const t = mk([{ key: "r" }, { key: "h", parent: "r", tags: ["t:x"] }, { key: "d", parent: "r", tags: ["t:x"] }]);
+  t.nodes.h.kind = "hub";
+  const f = filterTree(t, ["t:x"]);
+  assert.ok(f.nodes.h);
+  assert.equal(f.nodes.h.emptiedByFilter, undefined);
+});
+
+test("no active filter returns the same tree", () => {
+  assert.equal(filterTree(tree, []), tree);
+});
+
+test("a filter that empties a hub removes its gap slot in layout", () => {
+  const t = mk([
+    { key: "r" },
+    { key: "H", parent: "r", tags: ["t:x"] },
+    { key: "d1", parent: "H" },
+    { key: "d2", parent: "H" },
+    { key: "z", parent: "r", tags: ["t:x"] }
+  ]);
+  const f = filterTree(t, ["t:x"]);
+  assert.deepEqual(f.order, ["r", "H", "z"]);
+  const L = layoutTree(f);
+  assert.equal(L.N, 1);
+  assert.ok(!L.slots.some((s) => s.type === "gap"));
+  assert.ok(Number.isFinite(L.pos.H.x) && Number.isFinite(L.pos.H.y));
+  const copy = { root: f.root, order: f.order, nodes: Object.assign({}, f.nodes) };
+  copy.nodes.H = Object.assign({}, f.nodes.H);
+  delete copy.nodes.H.emptiedByFilter;
+  assert.equal(L.N, layoutTree(copy).N - 1);
 });

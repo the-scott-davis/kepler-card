@@ -114,10 +114,9 @@ export function filterTree(tree, selected) {
     if (!vis.has(key)) return;
     const n = tree.nodes[key];
     order.push(key);
-    nodes[key] = Object.assign({}, n, {
-      tags: n.tags.slice(),
-      children: n.children.filter(function (c) { return vis.has(c); })
-    });
+    const kids = n.children.filter(function (c) { return vis.has(c); });
+    nodes[key] = Object.assign({}, n, { tags: n.tags.slice(), children: kids });
+    if (n.children.length > 0 && kids.length === 0) nodes[key].emptiedByFilter = true;
   });
   return { root: tree.root, nodes: nodes, order: order };
 }

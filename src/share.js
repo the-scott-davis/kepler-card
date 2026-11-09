@@ -108,6 +108,7 @@ export function shareTree(tree, opts) {
       key: keyOf[k], parent, status: n.status, icon: n.icon, label, entity: null, tags: [],
       kind: n.kind, children: [], source: {}, sort: rank[k],
     };
+    if (n.emptiedByFilter === true) out.nodes[keyOf[k]].emptiedByFilter = true;
   });
   ranked.forEach((k) => {
     if (k === tree.root) return;

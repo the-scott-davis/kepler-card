@@ -3,6 +3,7 @@ import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import { installShareStubs } from "./helpers/share-stubs.js";
 import { buildTree } from "../src/tree.js";
+import { layoutTree } from "../src/layout.js";
 import { filterTree } from "../src/filters.js";
 import { defaultTheme } from "../src/theme.js";
 import { drawMap } from "../src/draw.js";
@@ -262,4 +263,21 @@ test("late frames of a filtered tree use no black stroke or fill", () => {
     // Gradient stops (the halo's rgba(0,0,0,0) end) are not strokes or fills.
     assert.ok(stubs.calls.gradients.some((g) => g.stops.some((s) => dark(s[1]))));
   } finally { stubs.restore(); }
+});
+
+test("shareTree keeps the emptied-by-filter mark", () => {
+  const t = buildTree([
+    { key: "root", label: "Router", status: "online", icon: "mdi:router" },
+    { key: "lamp", parent: "root", label: "Lamp", status: "online", icon: "mdi:lightbulb" },
+    { key: "hub", parent: "root", label: "Zigbee", status: "recent", kind: "hub", icon: "mdi:zigbee" },
+  ], quiet);
+  t.nodes.hub.emptiedByFilter = true;
+  const c = shareTree(t, {});
+  const marked = Object.values(c.nodes).filter((n) => n.emptiedByFilter === true);
+  assert.equal(marked.length, 1);
+  assert.equal(marked[0].kind, "hub");
+  assert.equal(Object.values(c.nodes).filter((n) => "emptiedByFilter" in n).length, 1);
+  const a = layoutTree(t), b = layoutTree(c);
+  assert.equal(b.N, a.N);
+  assert.ok(!b.slots.some((s) => s.type === "gap"));
 });
