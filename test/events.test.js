@@ -340,3 +340,18 @@ test("focus moves to the nearest drawn ancestor, then the root, when the node is
   assert.equal(el.shadowRoot.activeElement, nodeEl(el, "r"));
   el.remove();
 });
+
+test("focus tip is placed from the disc box, like a hover at its centre", () => {
+  const el = mount();
+  const n = nodeEl(el, "lamp");
+  n.matches = () => true;
+  const box = (l, t, w, h) => () => ({ left: l, top: t, width: w, height: h, right: l + w, bottom: t + h });
+  n.getBoundingClientRect = box(-500, 0, 900, 900); // the whole group, long label included
+  n.querySelector(".disc").getBoundingClientRect = box(300, 200, 20, 20);
+  el.shadowRoot.querySelector(".wrap").getBoundingClientRect = box(100, 50, 1000, 600);
+  focusin(n);
+  const tip = tipOf(el);
+  assert.equal(tip.style.left, (310 - 100 + 14) + "px");
+  assert.equal(tip.style.top, (210 - 50 + 14) + "px");
+  el.remove();
+});

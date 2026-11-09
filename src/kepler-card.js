@@ -239,6 +239,13 @@ export class KeplerElement extends HTMLElement {
       if (ev.key !== "Enter") ev.preventDefault(); // Space must not scroll the page
       tap(el);
     });
+    const place = (ev) => {
+      const r = wrap.getBoundingClientRect();
+      let x = (ev.clientX || 0) - r.left + 14, y = (ev.clientY || 0) - r.top + 14;
+      if (x + 200 > r.width) x -= 224;
+      tip.style.left = Math.max(4, x) + "px";
+      tip.style.top = Math.max(4, y) + "px";
+    };
     // Keyboard focus shows the label next to the node; `pan` also brings it into a zoomed view.
     this._showFocusTip = (el, pan) => {
       const node = el ? this._tree.nodes[el.dataset.key] : null;
@@ -250,24 +257,14 @@ export class KeplerElement extends HTMLElement {
       if (pan) this._panIntoView(node.key);
       tip.textContent = node.label;
       tip.style.opacity = "1";
-      const r = wrap.getBoundingClientRect(), b = el.getBoundingClientRect();
-      let x = b.left - r.left + b.width + 8, y = b.top - r.top;
-      if (x + 200 > r.width) x = b.left - r.left - 224;
-      tip.style.left = Math.max(4, x) + "px";
-      tip.style.top = Math.max(4, y) + "px";
+      const d = el.querySelector(".disc") || el, b = d.getBoundingClientRect();
+      place({ clientX: b.left + b.width / 2, clientY: b.top + b.height / 2 });
     };
     svg.addEventListener("focusin", (ev) => this._showFocusTip(nodeAt(ev), !this._restoringFocus));
     svg.addEventListener("focusout", (ev) => {
       const to = ev.relatedTarget && ev.relatedTarget.closest ? ev.relatedTarget.closest(".node[data-key]") : null;
       if (!to) tip.style.opacity = "0";
     });
-    const place = (ev) => {
-      const r = wrap.getBoundingClientRect();
-      let x = (ev.clientX || 0) - r.left + 14, y = (ev.clientY || 0) - r.top + 14;
-      if (x + 200 > r.width) x -= 224;
-      tip.style.left = Math.max(4, x) + "px";
-      tip.style.top = Math.max(4, y) + "px";
-    };
     svg.addEventListener("mouseover", (ev) => {
       const el = nodeAt(ev);
       const node = el ? this._tree.nodes[el.dataset.key] : null;
