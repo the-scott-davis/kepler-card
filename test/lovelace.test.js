@@ -193,3 +193,20 @@ test("a direct nodes assignment is still replaced by the entity nodes on the nex
   el.hass = h;
   assert.deepEqual(keys(el), ["r", "d"]);
 });
+
+test("setConfig draws once for options and nodes together, and for either alone", () => {
+  const el = mount();
+  el.setConfig({ nodes: A() });
+  const n = el._drawCount;
+  el.setConfig({ nodes: B(), title: "New" });
+  assert.equal(el._drawCount, n + 1);
+  assert.deepEqual(keys(el), ["r", "d", "e"]);
+  el.setConfig({ nodes: B(), title: "Newer" });
+  assert.equal(el._drawCount, n + 2);
+  el.setConfig({ nodes: A(), title: "Newer" });
+  assert.equal(el._drawCount, n + 3);
+  // The options setter has never skipped equal options, so an unchanged config still draws once.
+  el.setConfig({ nodes: A(), title: "Newer" });
+  assert.equal(el._drawCount, n + 4);
+  assert.equal(el._batchDepth, 0);
+});
