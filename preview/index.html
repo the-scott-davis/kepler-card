@@ -8,9 +8,9 @@
     body { margin: 0; font: 14px system-ui, sans-serif; background: #1e293b; color: #e2e8f0; }
     main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; padding: 16px; }
     @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-    fieldset { border: 1px solid #475569; margin: 0 0 12px; padding: 8px 12px; }
+    fieldset { border: 1px solid #475569; margin: 0 0 12px; padding: 8px 12px; min-width: 0; }
     label, button, select { margin: 2px 8px 2px 0; }
-    #log { height: 180px; overflow: auto; background: #0f172a; padding: 6px; font: 12px ui-monospace, monospace; white-space: pre-wrap; }
+    #log { height: 180px; overflow: auto; background: #0f172a; padding: 6px; font: 12px ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
     #shareout img, #shareout video { max-width: 100%; }
     ul { padding-left: 18px; }
   </style>

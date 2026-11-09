@@ -98,3 +98,29 @@ test("share video gets its controls only after the late-frame seek ends", () => 
   assert.match(fn, /setTimeout\(showControls,\s*2000\)/);
   assert.ok(fn.indexOf('"loadedmetadata"') > fn.indexOf("showControls = "));
 });
+
+test("every sample icon has a path in the ha-icon stub", async () => {
+  const { FALLBACK_ICON } = await import("../src/tree.js");
+  const stub = readFileSync(new URL("../preview/ha-icon-stub.js", import.meta.url), "utf8");
+  const names = new Set([FALLBACK_ICON]);
+  [home, homeChanged, basic, basicChanged, deep, deepChanged, broken].forEach((sample) => {
+    sample.forEach((e) => {
+      if (e && typeof e === "object" && typeof e.icon === "string" && e.icon) names.add(e.icon);
+    });
+  });
+  assert.ok(names.size >= 39, "collected " + names.size + " icon names");
+  names.forEach((name) => {
+    const re = new RegExp('"' + name.replace(/[-:]/g, "\\$&") + '"\\s*:\\s*"M');
+    assert.match(stub, re, name + " has no path in the stub");
+  });
+});
+
+test("the event log wraps long lines", () => {
+  const log = html.match(/#log\s*\{([^}]*)\}/);
+  assert.ok(log, "#log rule exists");
+  assert.match(log[1], /overflow-wrap:\s*anywhere/);
+  assert.match(log[1], /word-break:\s*break-word/);
+  assert.match(log[1], /height:\s*180px/);
+  assert.match(log[1], /overflow:\s*auto/);
+  assert.match(html, /fieldset\s*\{[^}]*min-width:\s*0/);
+});
