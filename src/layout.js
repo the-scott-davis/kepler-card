@@ -83,6 +83,7 @@ export function layoutTree(tree, opts) {
   const range = Object.create(null);
   const seen = Object.create(null);
   const hubOrder = [];
+  const bare = Object.create(null);
 
   const kids = (k) => {
     const list = (nodes[k].children || []).filter((c) => nodes[c]).slice().sort(byOrder);
@@ -116,7 +117,13 @@ export function layoutTree(tree, opts) {
         if (!seen[c]) stack.push({ k: c, dep: f.dep + 1, kids: null, i: 0, start: 0 });
         continue;
       }
-      if (slots.length === f.start && f.k !== root) slots.push({ type: "gap", hub: f.k });
+      if (slots.length === f.start && f.k !== root) {
+        // A hub emptied only by a filter, or holding only such hubs, is drawn bare with no gap slot.
+        const isBare = nodes[f.k].emptiedByFilter === true ||
+          (f.kids.dev.length === 0 && f.kids.hub.length > 0 && f.kids.hub.every((c) => bare[c]));
+        if (isBare) bare[f.k] = true;
+        else slots.push({ type: "gap", hub: f.k });
+      }
       range[f.k] = [f.start, slots.length - 1];
       stack.pop();
     }

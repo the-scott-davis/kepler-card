@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { layoutTree, DEVICE_RING, HUB_RADIUS, ROOT_RADIUS, DEVICE_RADIUS } from "../src/layout.js";
+import { filterTree } from "../src/filters.js";
 
 // Build a Tree by hand: specs are [key, parent, kind?, sort?]; the first is the root.
 function mk(specs) {
@@ -142,4 +143,48 @@ test("a chain of several thousand nodes does not blow the stack", () => {
   for (let i = 1; i <= 4000; i++) s.push(["h" + i, i === 1 ? "r" : "h" + (i - 1)]);
   const L = layoutTree(mk(s));
   assert.equal(L.pos.h4000.depth, 4000);
+});
+
+const flag = (t, ...ks) => { ks.forEach((k) => { t.nodes[k].emptiedByFilter = true; }); return t; };
+const gaps = (L) => L.slots.filter((s) => s.type === "gap");
+
+test("a hub emptied by a filter gets no gap slot but keeps a position", () => {
+  const L = layoutTree(flag(mk([["r", null], ["a", "r", "hub"], ["x", "r"]]), "a"));
+  assert.equal(gaps(L).length, 0);
+  assert.equal(L.N, 1);
+  const p = L.pos.a;
+  assert.ok(Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.a));
+  assert.ok(p.r < DEVICE_RING);
+});
+
+test("an emptied hub that is the only entry still gets a finite position", () => {
+  const L = layoutTree(flag(mk([["r", null], ["a", "r", "hub"]]), "a"));
+  assert.deepEqual(L.slots, []);
+  assert.equal(L.N, 1);
+  assert.ok(Number.isFinite(L.pos.a.a));
+});
+
+test("an emptied hub last in the slot list gets a finite position", () => {
+  const L = layoutTree(flag(mk([["r", null], ["x", "r", "device", "a"], ["y", "r", "device", "b"], ["z", "r", "hub", "z"]]), "z"));
+  assert.equal(L.N, 2);
+  assert.ok(Number.isFinite(L.pos.z.x) && Number.isFinite(L.pos.z.y));
+});
+
+test("a parent holding only emptied hubs gets no gap slot", () => {
+  const L = layoutTree(flag(mk([["r", null], ["p", "r", "hub"], ["h", "p", "hub"], ["x", "r"]]), "h"));
+  assert.equal(gaps(L).length, 0);
+  assert.equal(L.N, 1);
+  assert.ok(L.pos.p && L.pos.h);
+});
+
+test("a parent with a visible child keeps no gap", () => {
+  const L = layoutTree(flag(mk([["r", null], ["p", "r", "hub"], ["h", "p", "hub"], ["d", "p"]]), "h"));
+  assert.deepEqual(L.slots, [{ type: "dev", key: "d", hub: "p" }]);
+});
+
+test("a childless kind hub keeps one gap slot when filtered", () => {
+  const t = mk([["r", null], ["a", "r", "hub"], ["x", "r"]]);
+  t.nodes.a.tags = ["t:x"];
+  const L = layoutTree(filterTree(t, ["t:x"]));
+  assert.deepEqual(gaps(L), [{ type: "gap", hub: "a" }]);
 });

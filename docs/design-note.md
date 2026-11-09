@@ -21,7 +21,7 @@ NetOrbit citations give line numbers in `custom_components/netorbit/frontend/net
 - Tags: Proposed optional top-level field `tags`, an array of strings that Kepler reads only for filters.
 - Kind: Proposed optional field `kind`, either `hub` or `device`, and when absent a node with children is a hub and a leaf is a device, because layout puts hubs on inner rings and devices on the outer ring (lines 80-95).
 - Kind: Proposed, a node with children is always laid out as a hub whatever its `kind`.
-- Kind: Proposed, a `kind` hub node with no children keeps a gap slot on the device ring, as NetOrbit gives an empty hub (line 118).
+- Kind: Proposed, a `kind` hub node with no children in the source data keeps a gap slot on the device ring, as NetOrbit gives an empty hub (line 118); a hub whose children were all hidden by a filter is a different case, covered under Filters.
 - Extra: `extra` is a separate optional top-level map that Kepler never reads and hands back in the tap detail as `detail.node.extra`.
 - Tree rule: Proposed, the root is the first parentless node with kind hub, or the first parentless node if none has it, and the other parentless nodes attach to the root; NetOrbit differs only in that it takes the first parentless hub (line 1013), falls back to the first hub (line 1018), never picks a non-hub as root, and attaches hubs with no known parent to the root (line 88).
 - Tree rule: Proposed, a parent key matching no node attaches to the root, which matches NetOrbit (lines 88 and 92).
@@ -114,7 +114,7 @@ router                              status: online   icon: mdi:router-wireless  
 - Proposed rule 1: a tag holding a colon is `group:value`, split on the first colon, so `topology:zigbee` is the chip `zigbee` in the `topology` group, and a tag with no colon, or with nothing either side of the colon, is a plain tag. Plain tags form one group of their own. A node matches when, for every group with a selected chip, it has at least one selected tag from that group, so picks within a group mean either and picks across groups mean both. While no tag is selected every node is visible.
 - Proposed rule 2: a node is visible if it matches, or has a visible descendant, or is the root.
 - Proposed rule 3: everything else is hidden, including untagged nodes while any tag is selected.
-- Proposed: hidden nodes leave no gap, because layout reflows over visible nodes.
+- Proposed: hidden nodes leave no gap, because layout reflows over visible nodes. A hub that matches a filter but whose children are all hidden stays on the map as a bare hub with no gap slot, so no blank wedge is left on the ring, and its ring position may shift as filters change. A hub with no children in the source data still keeps its gap slot.
 - Proposed: shared images and video show the current filtered view.
 - NetOrbit has no tag filter today, so this is new behaviour (no match in the NetOrbit file).
 
