@@ -417,7 +417,8 @@ export class KeplerElement extends HTMLElement {
     const D = drawMap(tree, { interactive: true });
     const svg = this._q("svg.map");
     const had = this.shadowRoot.activeElement;
-    const focusKey = had && had.closest ? (had.closest(".node[data-key]") || {}).dataset?.key : undefined;
+    const hadNode = had && had.closest ? had.closest(".node[data-key]") : null;
+    const focusKey = hadNode ? hadNode.dataset.key : undefined;
     this._q("g.content").innerHTML = `<circle class="ring" cx="${D.C.x}" cy="${D.C.y}" r="370"/>${D.links}${D.gfx}${D.labels}`;
     this._hideTip();
     resolveIcons(svg);
