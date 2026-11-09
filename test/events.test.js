@@ -1,6 +1,7 @@
 import "./helpers/dom.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { win } from "./helpers/dom.js";
 import { KeplerElement } from "../src/kepler-card.js";
 
 customElements.define("kepler-ev-test", class extends KeplerElement {});
@@ -198,4 +199,89 @@ test("disconnect hides the tooltip", () => {
   el.remove();
   assert.equal(tip.style.opacity, "0");
   assert.equal(tip.textContent, "");
+});
+
+// ---- keyboard
+const key = (n, k) => {
+  const e = new win.KeyboardEvent("keydown", { key: k, bubbles: true, composed: true, cancelable: true });
+  n.dispatchEvent(e);
+  return e;
+};
+const focusin = (n) => n.dispatchEvent(new win.FocusEvent("focusin", { bubbles: true, composed: true }));
+const focusout = (n) => n.dispatchEvent(new win.FocusEvent("focusout", { bubbles: true, composed: true }));
+
+test("Enter fires the same tap as a click", () => {
+  const el = mount();
+  const log = record(el);
+  click(nodeEl(el, "lamp"));
+  const e = key(nodeEl(el, "lamp"), "Enter");
+  assert.deepEqual(log.map((l) => l[0]), ["tap", "tap"]);
+  const a = log[0][1], b = log[1][1];
+  assert.deepEqual(b.detail, a.detail);
+  assert.ok(b.bubbles && b.composed && b.cancelable);
+  assert.equal(e.defaultPrevented, false);
+  el.remove();
+});
+
+test("Space fires the tap and prevents the page scroll", () => {
+  const el = mount();
+  const log = record(el);
+  const e = key(nodeEl(el, "lamp"), " ");
+  assert.equal(log.length, 1);
+  assert.equal(log[0][1].detail.key, "lamp");
+  assert.equal(e.defaultPrevented, true);
+  el.remove();
+});
+
+test("other keys dispatch nothing", () => {
+  const el = mount({ more_info: true });
+  const log = record(el);
+  ["a", "Tab", "Escape", "ArrowDown"].forEach((k) => key(nodeEl(el, "lamp"), k));
+  assert.equal(log.length, 0);
+  el.remove();
+});
+
+test("Enter with more_info fires hass-more-info; preventDefault suppresses it", () => {
+  const el = mount({ more_info: true });
+  const log = record(el);
+  key(nodeEl(el, "lamp"), "Enter");
+  assert.deepEqual(log.map((l) => l[0]), ["tap", "info"]);
+  assert.equal(log[1][1].detail.entityId, "light.lamp");
+  el.addEventListener("kepler-node-tap", (e) => e.preventDefault());
+  key(nodeEl(el, "lamp"), "Enter");
+  assert.deepEqual(log.map((l) => l[0]), ["tap", "info", "tap"]);
+  el.remove();
+});
+
+test("focusin shows the label tooltip, focusout hides it", () => {
+  const el = mount();
+  focusin(nodeEl(el, "lamp"));
+  assert.equal(tipOf(el).textContent, "Lamp");
+  assert.equal(tipOf(el).style.opacity, "1");
+  focusout(nodeEl(el, "lamp"));
+  assert.equal(tipOf(el).style.opacity, "0");
+  el.remove();
+});
+
+test("a redraw refocuses the focused node when it still exists", () => {
+  const el = mount();
+  const first = nodeEl(el, "lamp");
+  first.setAttribute("tabindex", "0"); // draw.js does this for every node
+  first.focus();
+  assert.equal(el.shadowRoot.activeElement, first);
+  el.nodes = NODES().concat([{ key: "extra", parent: "r", label: "Extra" }]);
+  const again = nodeEl(el, "lamp");
+  assert.notEqual(again, first);
+  assert.equal(el.shadowRoot.activeElement, again);
+  el.remove();
+});
+
+test("a redraw after the focused node is gone throws nothing", () => {
+  const el = mount();
+  const first = nodeEl(el, "lamp");
+  first.setAttribute("tabindex", "0");
+  first.focus();
+  assert.doesNotThrow(() => { el.nodes = NODES().filter((n) => n.key !== "lamp"); });
+  assert.equal(nodeEl(el, "lamp"), null);
+  el.remove();
 });

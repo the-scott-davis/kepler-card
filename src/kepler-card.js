@@ -3,7 +3,7 @@ import { snapshotNodes, buildTree } from "./tree.js";
 import { buildChips, filterTree, activeSelection } from "./filters.js";
 import { drawMap } from "./draw.js";
 import { cssVar, statusCss, resolveTheme, computedReader } from "./theme.js";
-import { VIEW } from "./zoom.js";
+import { VIEW, panIntoView } from "./zoom.js";
 import { REVEAL, beamAngle, beamDeg, revealNode, revealGlobal, partialPath, reducedMotion, radarSvg } from "./reveal.js";
 import { resolveIcons } from "./icons.js";
 import { wireZoom } from "./gestures.js";
@@ -52,6 +52,9 @@ svg.map{font-family:${cssVar("font")};width:100%;height:auto;display:block;max-h
 .hlab{fill:${text};font-size:15px;font-weight:600;text-anchor:middle;paint-order:stroke;stroke:${LABEL_OUTLINE};stroke-width:4px}
 .dlab{fill:${text}}
 .node{cursor:pointer}
+.node:focus{outline:none}
+.node:focus-visible{outline:none}
+.node:focus-visible .disc{stroke:${hi};stroke-width:3px}
 .node:hover .disc{stroke-width:4}
 .node:hover .dlab{font-weight:600}
 ${statusCss(null)}
@@ -74,7 +77,7 @@ const SHELL = `<style>${shellCss()}</style>
 <div class="head"><div class="title"></div><button class="sharebtn" type="button" title="Share an image or video of the map">Share</button></div>
 <div class="chips" hidden></div>
 <div class="wrap">
-<svg class="map" viewBox="${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}" role="img" aria-label="Map"><defs><filter id="kblur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter></defs><g class="content"></g></svg>
+<svg class="map" viewBox="${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}" role="group" aria-label="Map"><defs><filter id="kblur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter></defs><g class="content"></g></svg>
 <div class="tip"></div>
 <div class="zoomctl"><button class="zin" type="button" title="Zoom in" aria-label="Zoom in">+</button><button class="zout" type="button" title="Zoom out" aria-label="Zoom out">&minus;</button><button class="zfit" type="button" title="Whole map" aria-label="Whole map">&#9635;</button></div>
 </div>
@@ -215,19 +218,42 @@ export class KeplerElement extends HTMLElement {
       const el = ev.target && ev.target.closest ? ev.target.closest(".node[data-key]") : null;
       return el ? el : null;
     };
-    svg.addEventListener("click", (ev) => {
-      const el = nodeAt(ev);
-      if (!el) return;
-      const node = this._tree.nodes[el.dataset.key];
+    const tap = (el) => {
+      const node = el ? this._tree.nodes[el.dataset.key] : null;
       if (!node) return;
-      const tap = new CustomEvent("kepler-node-tap", {
+      const ev = new CustomEvent("kepler-node-tap", {
         bubbles: true, composed: true, cancelable: true,
         detail: { key: node.key, node: copy(node.source) },
       });
-      const ok = this.dispatchEvent(tap);
+      const ok = this.dispatchEvent(ev);
       if (ok && this._opts.more_info && node.entity) {
         this.dispatchEvent(new CustomEvent("hass-more-info", { bubbles: true, composed: true, detail: { entityId: node.entity } }));
       }
+    };
+    svg.addEventListener("click", (ev) => tap(nodeAt(ev)));
+    svg.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter" && ev.key !== " " && ev.key !== "Spacebar") return;
+      const el = nodeAt(ev);
+      if (!el) return;
+      if (ev.key !== "Enter") ev.preventDefault(); // Space must not scroll the page
+      tap(el);
+    });
+    svg.addEventListener("focusin", (ev) => {
+      const el = nodeAt(ev);
+      const node = el ? this._tree.nodes[el.dataset.key] : null;
+      if (!node) return;
+      this._panIntoView(node.key);
+      tip.textContent = node.label;
+      tip.style.opacity = "1";
+      const r = wrap.getBoundingClientRect(), b = el.getBoundingClientRect();
+      let x = b.left - r.left + b.width + 8, y = b.top - r.top;
+      if (x + 200 > r.width) x = b.left - r.left - 224;
+      tip.style.left = Math.max(4, x) + "px";
+      tip.style.top = Math.max(4, y) + "px";
+    });
+    svg.addEventListener("focusout", (ev) => {
+      const to = ev.relatedTarget && ev.relatedTarget.closest ? ev.relatedTarget.closest(".node[data-key]") : null;
+      if (!to) tip.style.opacity = "0";
     });
     const place = (ev) => {
       const r = wrap.getBoundingClientRect();
@@ -249,6 +275,15 @@ export class KeplerElement extends HTMLElement {
       const to = ev.relatedTarget && ev.relatedTarget.closest ? ev.relatedTarget.closest(".node[data-key]") : null;
       if (!to) tip.style.opacity = "0";
     });
+  }
+
+  /** With zoom on, pans the view the least that brings a node into it. */
+  _panIntoView(key) {
+    if (!this._view || !this._zoom || !this._drawn) return;
+    const v = panIntoView(this._view, this._drawn.pos[key]);
+    if (v === this._view) return;
+    this._view = v;
+    this._zoom.apply();
   }
 
   _wireZoom() {
@@ -379,13 +414,21 @@ export class KeplerElement extends HTMLElement {
     this._applyOptions();
     this._renderChips();
     const tree = this._viewTree();
-    const D = drawMap(tree, {});
+    const D = drawMap(tree, { interactive: true });
     const svg = this._q("svg.map");
+    const had = this.shadowRoot.activeElement;
+    const focusKey = had && had.closest ? (had.closest(".node[data-key]") || {}).dataset?.key : undefined;
     this._q("g.content").innerHTML = `<circle class="ring" cx="${D.C.x}" cy="${D.C.y}" r="370"/>${D.links}${D.gfx}${D.labels}`;
     this._hideTip();
     resolveIcons(svg);
     this._drawn = { tree, pos: D.pos, C: D.C };
     this._zoom.apply();
+    if (focusKey !== undefined) {
+      const again = Array.from(svg.querySelectorAll(".node[data-key]")).find((n) => n.dataset.key === focusKey);
+      if (again && typeof again.focus === "function") {
+        try { again.focus({ preventScroll: true }); } catch (e) { again.focus(); }
+      }
+    }
     if (tree.root !== null && !this._revealed) this._playReveal();
   }
 

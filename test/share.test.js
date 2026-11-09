@@ -281,3 +281,8 @@ test("shareTree keeps the emptied-by-filter mark", () => {
   assert.equal(b.N, a.N);
   assert.ok(!b.slots.some((s) => s.type === "gap"));
 });
+
+test("shareSvg output has no focus or aria attributes", () => {
+  const svg = shareSvg(sample(), {});
+  assert.ok(!/tabindex|role="button"|aria-label/.test(svg));
+});
