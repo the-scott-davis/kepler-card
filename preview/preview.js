@@ -36,7 +36,7 @@ function applyTheme() {
 }
 
 function applyOptions() {
-  el.options = { title: "Preview", height: 700, filters: $("filters").checked, more_info: $("moreinfo").checked };
+  el.options = { title: $("title").value, height: Number($("height").value), filters: $("filters").checked, more_info: $("moreinfo").checked };
 }
 
 function lovelaceMode() {
@@ -51,7 +51,7 @@ function makeHass(nodes) {
 
 // In lovelace mode this page plays a tiny Home Assistant: a config, and a hass object with one entity.
 function applyConfig() {
-  el.setConfig({ type: "custom:kepler-card", title: "Preview", nodes_entity: NODES_ENTITY, filters: $("filters").checked });
+  el.setConfig({ type: "custom:kepler-card", title: $("title").value, height: Number($("height").value), nodes_entity: NODES_ENTITY, filters: $("filters").checked });
 }
 
 function logCustomCards() {
@@ -138,6 +138,8 @@ $("replace").addEventListener("click", () => {
   }
 });
 $("filters").addEventListener("change", () => { if (lovelaceMode()) applyConfig(); else applyOptions(); });
+$("title").addEventListener("input", () => { if (lovelaceMode()) applyConfig(); else applyOptions(); });
+$("height").addEventListener("change", () => { if (lovelaceMode()) applyConfig(); else applyOptions(); });
 $("moreinfo").addEventListener("change", () => { if (!lovelaceMode()) applyOptions(); });
 $("markview").addEventListener("click", () => { mark = currentView(); updateViewState(); });
 setInterval(updateViewState, 200);

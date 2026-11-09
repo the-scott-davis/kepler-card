@@ -124,3 +124,8 @@ test("the event log wraps long lines", () => {
   assert.match(log[1], /overflow:\s*auto/);
   assert.match(html, /fieldset\s*\{[^}]*min-width:\s*0/);
 });
+
+test("index.html has the title and height option controls", () => {
+  assert.match(html, /id="title"/);
+  assert.match(html, /<select id="height"><option value="700" selected>/);
+});

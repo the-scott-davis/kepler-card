@@ -235,6 +235,36 @@ test("a redraw held during a tap is released when the tap ends", () => {
   el.remove();
 });
 
+test("an options change during a running reveal ends it and draws once", () => {
+  const el = mount(NODES(), {});
+  assert.equal(el._revealing, true);
+  const before = el._drawCount;
+  el.options = { title: "X" };
+  assert.equal(sr(el, ".title").textContent, "X");
+  assert.equal(el._revealing, false);
+  assert.equal(el._drawCount, before + 1);
+  assert.equal(el._timer, null);
+  el.remove();
+});
+
+test("an options change draws at once after a gesture and keeps the view; nodes still wait", () => {
+  const el = ended(mount(NODES(), {}));
+  sr(el, ".zin").click();
+  const view = el._view;
+  assert.ok(view);
+  el._gestureAt = Date.now();
+  const before = el._drawCount;
+  el.options = { title: "Y" };
+  assert.equal(el._drawCount, before + 1);
+  assert.equal(sr(el, ".title").textContent, "Y");
+  assert.equal(el._view, view);
+  el.nodes = NODES().concat([{ key: "w", parent: "r", label: "W" }]);
+  assert.equal(el._drawCount, before + 1);
+  assert.ok(el._timer);
+  assert.ok(!keys(el).includes("w"));
+  el.remove();
+});
+
 test("disconnect mid-gesture clears gesture state; reattach redraws and zoom works", () => {
   const el = ended(mount(NODES(), {}));
   sr(el, ".zin").click();
@@ -275,4 +305,14 @@ test("a mouse press released outside the map still ends, and the window listener
   assert.equal(el._gesturing, false);
   window.dispatchEvent(up);
   assert.equal(el._gesturing, false);
+});
+
+test("assigning unchanged options during a reveal neither ends it nor draws", () => {
+  const el = mount(NODES());
+  assert.equal(el._revealing, true);
+  const n = el._drawCount;
+  el.options = el.options;
+  assert.equal(el._revealing, true);
+  assert.equal(el._drawCount, n);
+  el.remove();
 });
