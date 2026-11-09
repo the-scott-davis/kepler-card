@@ -120,3 +120,82 @@ test("hover shows the label only and fires no event", () => {
   assert.equal(log.length, 0);
   el.remove();
 });
+
+const hover = (n) => n.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, composed: true }));
+const tipOf = (el) => el.shadowRoot.querySelector(".tip");
+const TAGGED = () => [
+  { key: "r", label: "Router" },
+  { key: "lamp", parent: "r", label: "Lamp", tags: ["area:den"] },
+  { key: "plain", parent: "r", label: "Plain", tags: ["area:office"] },
+];
+
+test("a nodes redraw hides the tooltip", () => {
+  const el = mount();
+  const tip = tipOf(el);
+  hover(nodeEl(el, "lamp"));
+  assert.equal(tip.style.opacity, "1");
+  assert.equal(tip.textContent, "Lamp");
+  el.nodes = [...NODES(), { key: "new", parent: "r", label: "New" }];
+  assert.equal(tip.style.opacity, "0");
+  assert.equal(tip.textContent, "");
+  el.remove();
+});
+
+test("a filter chip redraw hides the tooltip", () => {
+  const el = document.createElement("kepler-ev-test");
+  el.nodes = TAGGED();
+  el.options = { filters: true };
+  document.body.appendChild(el);
+  el._endReveal();
+  const tip = tipOf(el);
+  hover(nodeEl(el, "lamp"));
+  assert.equal(tip.style.opacity, "1");
+  el.shadowRoot.querySelector('button.chip[data-tag="area:den"]').dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true }));
+  assert.equal(tip.style.opacity, "0");
+  assert.equal(tip.textContent, "");
+  el.remove();
+});
+
+test("an options redraw hides the tooltip", () => {
+  const el = mount();
+  const tip = tipOf(el);
+  hover(nodeEl(el, "plain"));
+  assert.equal(tip.style.opacity, "1");
+  el.options = { title: "Changed" };
+  assert.equal(tip.style.opacity, "0");
+  assert.equal(tip.textContent, "");
+  el.remove();
+});
+
+test("hover after a redraw shows the tooltip again", () => {
+  const el = mount();
+  const tip = tipOf(el);
+  hover(nodeEl(el, "lamp"));
+  el.nodes = [...NODES(), { key: "new", parent: "r", label: "New" }];
+  assert.equal(tip.style.opacity, "0");
+  hover(nodeEl(el, "lamp"));
+  assert.equal(tip.style.opacity, "1");
+  assert.equal(tip.textContent, "Lamp");
+  el.remove();
+});
+
+test("moving between adjacent nodes shows the current label", () => {
+  const el = mount();
+  const tip = tipOf(el);
+  const a = nodeEl(el, "lamp"), b = nodeEl(el, "plain");
+  hover(a);
+  a.dispatchEvent(new MouseEvent("mouseout", { bubbles: true, composed: true, relatedTarget: b }));
+  hover(b);
+  assert.equal(tip.style.opacity, "1");
+  assert.equal(tip.textContent, "Plain");
+  el.remove();
+});
+
+test("disconnect hides the tooltip", () => {
+  const el = mount();
+  const tip = tipOf(el);
+  hover(nodeEl(el, "lamp"));
+  el.remove();
+  assert.equal(tip.style.opacity, "0");
+  assert.equal(tip.textContent, "");
+});
