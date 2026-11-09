@@ -141,7 +141,7 @@ export class KeplerElement extends HTMLElement {
       this._selected = new Set(v.selected_tags.filter((t) => typeof t === "string"));
     }
     this._chipsDirty = true;
-    this._requestDraw();
+    this._requestDraw(true);
   }
 
   get selectedTags() {
@@ -263,9 +263,39 @@ export class KeplerElement extends HTMLElement {
 
   // -------------------------------------------------------------- drawing
 
-  _requestDraw() {
+  /** Runs fn, then makes one draw request for every change made inside it (urgent if any was). */
+  _batch(fn) {
+    this._batchDepth = (this._batchDepth || 0) + 1;
+    try {
+      fn();
+    } finally {
+      this._batchDepth--;
+      if (this._batchDepth === 0 && this._batchWant) {
+        const urgent = this._batchUrgent;
+        this._batchWant = false;
+        this._batchUrgent = false;
+        this._requestDraw(urgent);
+      }
+    }
+  }
+
+  _requestDraw(urgent) {
     this._dirty = true;
+    if (this._batchDepth > 0) {
+      this._batchWant = true;
+      if (urgent) this._batchUrgent = true;
+      return;
+    }
     if (!this.isConnected || !this._shell) return;
+    if (urgent) {
+      if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+      // Ending the reveal must not redraw on its own: the draw below covers it.
+      this._dirty = false;
+      this._endReveal();
+      this._dirty = true;
+      this._draw();
+      return;
+    }
     const age = Date.now() - this._gestureAt;
     if (this._revealing) return;
     if (this._gesturing || age < GESTURE_HOLD_MS) {

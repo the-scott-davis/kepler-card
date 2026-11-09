@@ -26,10 +26,12 @@ export class KeplerCard extends KeplerElement {
     Object.keys(DEFAULT_OPTIONS).forEach((k) => {
       if (c[k] !== undefined) opts[k] = c[k];
     });
-    this.options = opts;
-    this._rawNodes = undefined;
-    this._rawSig = undefined;
-    this.nodes = readNodes(c, this._hass);
+    this._batch(() => {
+      this.options = opts;
+      this._rawNodes = undefined;
+      this._rawSig = undefined;
+      this.nodes = readNodes(c, this._hass);
+    });
   }
 
   set hass(h) {
