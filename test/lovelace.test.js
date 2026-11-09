@@ -106,3 +106,90 @@ test("bare element keeps its own nodes when hass arrives without config", () => 
   el.hass = hassWith("sensor.k", { nodes: A() });
   assert.deepEqual(keys(el), ["r", "d", "e"]);
 });
+
+customElements.define("kepler-ll-spy", class extends KeplerCard {
+  get nodes() { return super.nodes; }
+  set nodes(v) { this._sets = (this._sets || 0) + 1; super.nodes = v; }
+});
+function mountSpy() {
+  const el = document.createElement("kepler-ll-spy");
+  document.body.appendChild(el);
+  el._endReveal();
+  return el;
+}
+
+test("same nodes reference skips the setter and all copy work", () => {
+  const el = mountSpy();
+  el.setConfig({ nodes_entity: "sensor.k" });
+  const h = hassWith("sensor.k", { nodes: A() });
+  el.hass = h;
+  el._endReveal();
+  const sets = el._sets, n = el._drawCount;
+  const real = JSON.stringify;
+  let calls = 0;
+  JSON.stringify = (...a) => { calls++; return real(...a); };
+  try {
+    el.hass = h;
+    el.hass = { states: { "sensor.k": h.states["sensor.k"] } };
+  } finally {
+    JSON.stringify = real;
+  }
+  assert.equal(calls, 0);
+  assert.equal(el._sets, sets);
+  assert.equal(el._drawCount, n);
+  assert.deepEqual(keys(el), ["r", "d"]);
+});
+
+test("new reference with equal content runs the setter but does not redraw", () => {
+  const el = mountSpy();
+  el.setConfig({ nodes_entity: "sensor.k" });
+  el.hass = hassWith("sensor.k", { nodes: A() });
+  el._endReveal();
+  const sets = el._sets, n = el._drawCount;
+  el.hass = hassWith("sensor.k", { nodes: A() });
+  assert.equal(el._sets, sets + 1);
+  assert.equal(el._drawCount, n);
+});
+
+test("a changed array redraws on the next update, then the same one is skipped", () => {
+  const el = mountSpy();
+  el.setConfig({ nodes_entity: "sensor.k" });
+  el.hass = hassWith("sensor.k", { nodes: A() });
+  el._endReveal();
+  const n = el._drawCount;
+  const h = hassWith("sensor.k", { nodes: B() });
+  el.hass = h;
+  assert.equal(el._drawCount, n + 1);
+  assert.deepEqual(keys(el), ["r", "d", "e"]);
+  el._endReveal();
+  const sets = el._sets, m = el._drawCount;
+  el.hass = h;
+  assert.equal(el._sets, sets);
+  assert.equal(el._drawCount, m);
+});
+
+test("setConfig after a hass update re-reads the nodes", () => {
+  const el = mountSpy();
+  const h = hassWith("sensor.k", { nodes: A(), other: B() });
+  el.setConfig({ nodes_entity: "sensor.k" });
+  el.hass = h;
+  assert.deepEqual(keys(el), ["r", "d"]);
+  el.setConfig({ nodes_entity: "sensor.k", nodes_attribute: "other" });
+  assert.deepEqual(keys(el), ["r", "d", "e"]);
+  const s = el._sets;
+  el.setConfig({ nodes_entity: "sensor.k" });
+  assert.deepEqual(keys(el), ["r", "d"]);
+  el.hass = h;
+  assert.equal(el._sets, s + 2);
+});
+
+test("a direct nodes assignment is still replaced by the entity nodes on the next update", () => {
+  const el = mountSpy();
+  el.setConfig({ nodes_entity: "sensor.k" });
+  const h = hassWith("sensor.k", { nodes: A() });
+  el.hass = h;
+  el.nodes = B();
+  assert.deepEqual(keys(el), ["r", "d", "e"]);
+  el.hass = h;
+  assert.deepEqual(keys(el), ["r", "d"]);
+});
