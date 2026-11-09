@@ -365,6 +365,7 @@ test("focusing a node outside the zoomed view pans it into view", async () => {
   el._view = { x: pos.x + 400 > 1070 - 100 ? -70 : pos.x + 400, y: pos.y, w: 100, h: 100 };
   const before = el._view;
   const node = sr(el, `.node[data-key="${key}"]`);
+  node.matches = () => true; // jsdom has no keyboard-focus heuristic
   node.dispatchEvent(new win.FocusEvent("focusin", { bubbles: true, composed: true }));
   const v2 = el._view;
   assert.notEqual(v2, before);
@@ -376,5 +377,25 @@ test("focusing a node outside the zoomed view pans it into view", async () => {
   el.options = { zoom: false };
   node.dispatchEvent(new win.FocusEvent("focusin", { bubbles: true, composed: true }));
   assert.equal(el._view, null);
+  el.remove();
+});
+
+test("mouse-originated focus does not pan; a redraw after panning away keeps the view", () => {
+  const el = ended(mount(NODES(), { zoom: true }));
+  const pos = el._drawn.pos.lamp;
+  el._view = { x: pos.x + 400 > 970 ? -70 : pos.x + 400, y: pos.y, w: 100, h: 100 };
+  const before = el._view;
+  const node = sr(el, '.node[data-key="lamp"]');
+  node.matches = () => false;
+  node.dispatchEvent(new win.FocusEvent("focusin", { bubbles: true, composed: true }));
+  assert.equal(el._view, before);
+  // Keyboard-focused node, then the user pans away, then a redraw must not snap back.
+  const n2 = sr(el, '.node[data-key="lamp"]');
+  n2.setAttribute("tabindex", "0");
+  n2.focus();
+  el._view = before;
+  el.nodes = NODES().concat([{ key: "extra", parent: "r", label: "Extra" }]);
+  assert.equal(el._view, before);
+  assert.equal(el.shadowRoot.activeElement, sr(el, '.node[data-key="lamp"]'));
   el.remove();
 });

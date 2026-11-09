@@ -233,6 +233,7 @@ export class KeplerElement extends HTMLElement {
     svg.addEventListener("click", (ev) => tap(nodeAt(ev)));
     svg.addEventListener("keydown", (ev) => {
       if (ev.key !== "Enter" && ev.key !== " " && ev.key !== "Spacebar") return;
+      if (ev.repeat || ev.ctrlKey || ev.altKey || ev.metaKey) return;
       const el = nodeAt(ev);
       if (!el) return;
       if (ev.key !== "Enter") ev.preventDefault(); // Space must not scroll the page
@@ -241,7 +242,11 @@ export class KeplerElement extends HTMLElement {
     svg.addEventListener("focusin", (ev) => {
       const el = nodeAt(ev);
       const node = el ? this._tree.nodes[el.dataset.key] : null;
-      if (!node) return;
+      if (!node || this._restoringFocus) return;
+      // A mouse press focuses the node too. Only keyboard focus pans the view and shows the tip.
+      let kb = true;
+      try { kb = el.matches(":focus-visible"); } catch (e) { kb = true; }
+      if (!kb) return;
       this._panIntoView(node.key);
       tip.textContent = node.label;
       tip.style.opacity = "1";
@@ -427,7 +432,12 @@ export class KeplerElement extends HTMLElement {
     if (focusKey !== undefined) {
       const again = Array.from(svg.querySelectorAll(".node[data-key]")).find((n) => n.dataset.key === focusKey);
       if (again && typeof again.focus === "function") {
-        try { again.focus({ preventScroll: true }); } catch (e) { again.focus(); }
+        this._restoringFocus = true;
+        try {
+          try { again.focus({ preventScroll: true }); } catch (e) { again.focus(); }
+        } finally {
+          this._restoringFocus = false;
+        }
       }
     }
     if (tree.root !== null && !this._revealed) this._playReveal();

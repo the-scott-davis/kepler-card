@@ -255,6 +255,7 @@ test("Enter with more_info fires hass-more-info; preventDefault suppresses it", 
 
 test("focusin shows the label tooltip, focusout hides it", () => {
   const el = mount();
+  nodeEl(el, "lamp").matches = () => true; // jsdom has no keyboard-focus heuristic
   focusin(nodeEl(el, "lamp"));
   assert.equal(tipOf(el).textContent, "Lamp");
   assert.equal(tipOf(el).style.opacity, "1");
@@ -283,5 +284,25 @@ test("a redraw after the focused node is gone throws nothing", () => {
   first.focus();
   assert.doesNotThrow(() => { el.nodes = NODES().filter((n) => n.key !== "lamp"); });
   assert.equal(nodeEl(el, "lamp"), null);
+  el.remove();
+});
+
+test("held key and modifier combos dispatch nothing", () => {
+  const el = mount();
+  const log = record(el);
+  const n = nodeEl(el, "lamp");
+  n.dispatchEvent(new win.KeyboardEvent("keydown", { key: "Enter", repeat: true, bubbles: true, composed: true }));
+  n.dispatchEvent(new win.KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true, composed: true }));
+  n.dispatchEvent(new win.KeyboardEvent("keydown", { key: " ", metaKey: true, bubbles: true, composed: true }));
+  assert.equal(log.length, 0);
+  el.remove();
+});
+
+test("mouse-originated focus shows no tooltip", () => {
+  const el = mount();
+  const n = nodeEl(el, "lamp");
+  n.matches = () => false;
+  focusin(n);
+  assert.notEqual(tipOf(el).style.opacity, "1");
   el.remove();
 });
