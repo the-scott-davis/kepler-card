@@ -306,3 +306,37 @@ test("mouse-originated focus shows no tooltip", () => {
   assert.notEqual(tipOf(el).style.opacity, "1");
   el.remove();
 });
+
+test("a redraw keeps the label tip for a keyboard-focused node", () => {
+  const el = mount();
+  const n = nodeEl(el, "lamp");
+  n.setAttribute("tabindex", "0");
+  n.focus();
+  el.nodes = NODES().concat([{ key: "extra", parent: "r", label: "Extra" }]);
+  const again = nodeEl(el, "lamp");
+  again.matches = () => true;
+  el._showFocusTip(again, false);
+  assert.equal(tipOf(el).textContent, "Lamp");
+  assert.equal(tipOf(el).style.opacity, "1");
+  el.remove();
+});
+
+test("focus moves to the nearest drawn ancestor, then the root, when the node is gone", () => {
+  const nodes = () => [
+    { key: "r", label: "Router", status: "online" },
+    { key: "hub", parent: "r", label: "Hub", kind: "hub" },
+    { key: "leaf", parent: "hub", label: "Leaf" },
+  ];
+  const el = document.createElement("kepler-ev-test");
+  el.nodes = nodes();
+  document.body.appendChild(el);
+  el._endReveal();
+  nodeEl(el, "leaf").setAttribute("tabindex", "0");
+  nodeEl(el, "leaf").focus();
+  el.nodes = nodes().filter((n) => n.key !== "leaf");
+  assert.equal(el.shadowRoot.activeElement, nodeEl(el, "hub"));
+  el.shadowRoot.activeElement.setAttribute("tabindex", "0");
+  el.nodes = nodes().filter((n) => n.key === "r");
+  assert.equal(el.shadowRoot.activeElement, nodeEl(el, "r"));
+  el.remove();
+});

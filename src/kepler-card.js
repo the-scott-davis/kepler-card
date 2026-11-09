@@ -239,15 +239,15 @@ export class KeplerElement extends HTMLElement {
       if (ev.key !== "Enter") ev.preventDefault(); // Space must not scroll the page
       tap(el);
     });
-    svg.addEventListener("focusin", (ev) => {
-      const el = nodeAt(ev);
+    // Keyboard focus shows the label next to the node; `pan` also brings it into a zoomed view.
+    this._showFocusTip = (el, pan) => {
       const node = el ? this._tree.nodes[el.dataset.key] : null;
-      if (!node || this._restoringFocus) return;
+      if (!node) return;
       // A mouse press focuses the node too. Only keyboard focus pans the view and shows the tip.
       let kb = true;
       try { kb = el.matches(":focus-visible"); } catch (e) { kb = true; }
       if (!kb) return;
-      this._panIntoView(node.key);
+      if (pan) this._panIntoView(node.key);
       tip.textContent = node.label;
       tip.style.opacity = "1";
       const r = wrap.getBoundingClientRect(), b = el.getBoundingClientRect();
@@ -255,7 +255,8 @@ export class KeplerElement extends HTMLElement {
       if (x + 200 > r.width) x = b.left - r.left - 224;
       tip.style.left = Math.max(4, x) + "px";
       tip.style.top = Math.max(4, y) + "px";
-    });
+    };
+    svg.addEventListener("focusin", (ev) => this._showFocusTip(nodeAt(ev), !this._restoringFocus));
     svg.addEventListener("focusout", (ev) => {
       const to = ev.relatedTarget && ev.relatedTarget.closest ? ev.relatedTarget.closest(".node[data-key]") : null;
       if (!to) tip.style.opacity = "0";
@@ -424,17 +425,28 @@ export class KeplerElement extends HTMLElement {
     const had = this.shadowRoot.activeElement;
     const hadNode = had && had.closest ? had.closest(".node[data-key]") : null;
     const focusKey = hadNode ? hadNode.dataset.key : undefined;
+    const prevNodes = (this._drawn && this._drawn.tree && this._drawn.tree.nodes) || this._tree.nodes;
     this._q("g.content").innerHTML = `<circle class="ring" cx="${D.C.x}" cy="${D.C.y}" r="370"/>${D.links}${D.gfx}${D.labels}`;
     this._hideTip();
     resolveIcons(svg);
     this._drawn = { tree, pos: D.pos, C: D.C };
     this._zoom.apply();
     if (focusKey !== undefined) {
-      const again = Array.from(svg.querySelectorAll(".node[data-key]")).find((n) => n.dataset.key === focusKey);
-      if (again && typeof again.focus === "function") {
+      const drawn = {};
+      Array.from(svg.querySelectorAll(".node[data-key]")).forEach((n) => { drawn[n.dataset.key] = n; });
+      // The node itself, else its nearest drawn ancestor (as it was before the redraw), else the root.
+      let target = drawn[focusKey] || null;
+      const seen = {};
+      for (let k = prevNodes[focusKey] ? prevNodes[focusKey].parent : null; !target && k != null && !seen[k]; k = prevNodes[k] ? prevNodes[k].parent : null) {
+        seen[k] = true;
+        target = drawn[k] || null;
+      }
+      if (!target && tree.root !== null) target = drawn[tree.root] || null;
+      if (target && typeof target.focus === "function") {
         this._restoringFocus = true;
         try {
-          try { again.focus({ preventScroll: true }); } catch (e) { again.focus(); }
+          try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
+          this._showFocusTip(target, false);
         } finally {
           this._restoringFocus = false;
         }
