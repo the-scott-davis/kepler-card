@@ -94,7 +94,40 @@ test("a selected tag that leaves then returns applies again", () => {
 test("selected_tags is kept while filters are off and applies when turned on", () => {
   const el = ended(mount(NODES(), { selected_tags: ["outdoor"] }));
   assert.equal(keys(el).length, 5);
+  el.options = { filters: true, selected_tags: ["outdoor"] };
+  assert.deepEqual(keys(el), ["lamp", "r"]);
+  el.remove();
+});
+
+test("removing selected_tags clears the preset", () => {
+  const el = ended(mount(NODES(), { filters: true, selected_tags: ["outdoor"] }));
+  assert.deepEqual(keys(el), ["lamp", "r"]);
   el.options = { filters: true };
+  assert.deepEqual(el.selectedTags, []);
+  assert.equal(el.options.selected_tags, undefined);
+  assert.equal(keys(el).length, 5);
+  assert.equal(chip(el, "outdoor").getAttribute("aria-pressed"), "false");
+  el.remove();
+});
+
+test("options.selected_tags reads back the live selection after chip clicks", () => {
+  const el = ended(mount(NODES(), { filters: true, selected_tags: ["outdoor"] }));
+  chip(el, "outdoor").click();
+  chip(el, "floor:up").click();
+  assert.deepEqual(el.options.selected_tags, ["floor:up"]);
+  el.options = Object.assign(el.options, { title: "T" });
+  assert.deepEqual(el.selectedTags, ["floor:up"]);
+  assert.deepEqual(keys(el), ["door", "r", "zb"]);
+  el.remove();
+});
+
+test("chip picks stay across options without a preset", () => {
+  const el = ended(mount(NODES(), { filters: true }));
+  assert.equal(el.options.selected_tags, undefined);
+  chip(el, "outdoor").click();
+  el.options = { filters: true, title: "T" };
+  assert.deepEqual(el.selectedTags, ["outdoor"]);
+  assert.deepEqual(el.options.selected_tags, ["outdoor"]);
   assert.deepEqual(keys(el), ["lamp", "r"]);
   el.remove();
 });
