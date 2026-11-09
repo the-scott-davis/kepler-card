@@ -188,3 +188,35 @@ test("a childless kind hub keeps one gap slot when filtered", () => {
   const L = layoutTree(filterTree(t, ["t:x"]));
   assert.deepEqual(gaps(L), [{ type: "gap", hub: "a" }]);
 });
+
+const MIN_HUB_DIST = 2 * HUB_RADIUS + 4;
+function spread(L, keys) {
+  keys.forEach((k) => {
+    const p = L.pos[k];
+    assert.ok(Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.a), k);
+  });
+  keys.forEach((a, i) => keys.slice(i + 1).forEach((b) => {
+    const d = Math.hypot(L.pos[a].x - L.pos[b].x, L.pos[a].y - L.pos[b].y);
+    assert.ok(d >= MIN_HUB_DIST - 1e-6, a + "/" + b + " " + d);
+  }));
+}
+
+test("adjacent emptied sibling hubs at one depth are kept apart", () => {
+  const t = flag(mk([
+    ["r", null], ["a", "r", "hub", "a"], ["ad", "a"], ["b1", "r", "hub", "b1"], ["b2", "r", "hub", "b2"], ["b3", "r", "hub", "b3"],
+    ["c", "r", "hub", "c"], ["cd", "c"], ["cd2", "c"],
+  ]), "b1", "b2", "b3");
+  const L = layoutTree(t);
+  assert.equal(gaps(L).length, 0);
+  spread(L, ["a", "b1", "b2", "b3", "c"]);
+});
+
+test("emptied sibling hubs first in slot order are kept apart", () => {
+  const t = flag(mk([
+    ["r", null], ["a1", "r", "hub", "a1"], ["a2", "r", "hub", "a2"], ["a3", "r", "hub", "a3"],
+    ["z", "r", "hub", "z"], ["zd", "z"], ["zd2", "z"],
+  ]), "a1", "a2", "a3");
+  const L = layoutTree(t);
+  assert.equal(gaps(L).length, 0);
+  spread(L, ["a1", "a2", "a3", "z"]);
+});
