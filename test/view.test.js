@@ -306,3 +306,13 @@ test("a mouse press released outside the map still ends, and the window listener
   window.dispatchEvent(up);
   assert.equal(el._gesturing, false);
 });
+
+test("assigning unchanged options during a reveal neither ends it nor draws", () => {
+  const el = mount(NODES());
+  assert.equal(el._revealing, true);
+  const n = el._drawCount;
+  el.options = el.options;
+  assert.equal(el._revealing, true);
+  assert.equal(el._drawCount, n);
+  el.remove();
+});

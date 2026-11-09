@@ -51,7 +51,7 @@ function makeHass(nodes) {
 
 // In lovelace mode this page plays a tiny Home Assistant: a config, and a hass object with one entity.
 function applyConfig() {
-  el.setConfig({ type: "custom:kepler-card", title: $("title").value, nodes_entity: NODES_ENTITY, filters: $("filters").checked });
+  el.setConfig({ type: "custom:kepler-card", title: $("title").value, height: Number($("height").value), nodes_entity: NODES_ENTITY, filters: $("filters").checked });
 }
 
 function logCustomCards() {

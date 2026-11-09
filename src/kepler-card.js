@@ -136,12 +136,18 @@ export class KeplerElement extends HTMLElement {
 
   set options(value) {
     const v = value && typeof value === "object" ? value : {};
-    this._opts = Object.assign({}, DEFAULT_OPTIONS, v);
+    const next = Object.assign({}, DEFAULT_OPTIONS, v);
+    const prev = this._opts || {};
+    let changed = Object.keys(next).length !== Object.keys(prev).length ||
+      Object.keys(next).some((k) => k !== "selected_tags" && next[k] !== prev[k]);
+    this._opts = next;
     if (Array.isArray(v.selected_tags)) {
-      this._selected = new Set(v.selected_tags.filter((t) => typeof t === "string"));
+      const sel = new Set(v.selected_tags.filter((t) => typeof t === "string"));
+      if (sel.size !== this._selected.size || [...sel].some((t) => !this._selected.has(t))) changed = true;
+      this._selected = sel;
     }
     this._chipsDirty = true;
-    this._requestDraw(true);
+    this._requestDraw(changed);
   }
 
   get selectedTags() {
