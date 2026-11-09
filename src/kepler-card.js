@@ -163,11 +163,19 @@ export class KeplerElement extends HTMLElement {
     this._view = null;
     this._gesturing = false;
     this._gestureAt = -Infinity;
+    this._hideTip();
     if (this._share) this._share.close();
   }
 
   _q(sel) {
     return this.shadowRoot.querySelector(sel);
+  }
+
+  _hideTip() {
+    const tip = this.shadowRoot && this._q(".tip");
+    if (!tip) return;
+    tip.style.opacity = "0";
+    tip.textContent = "";
   }
 
   _buildShell() {
@@ -330,6 +338,7 @@ export class KeplerElement extends HTMLElement {
     const D = drawMap(tree, {});
     const svg = this._q("svg.map");
     this._q("g.content").innerHTML = `<circle class="ring" cx="${D.C.x}" cy="${D.C.y}" r="370"/>${D.links}${D.gfx}${D.labels}`;
+    this._hideTip();
     resolveIcons(svg);
     this._drawn = { tree, pos: D.pos, C: D.C };
     this._zoom.apply();
