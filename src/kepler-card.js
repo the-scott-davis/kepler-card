@@ -1,8 +1,8 @@
 import { cssHeight } from "./util.js";
-import { snapshotNodes, buildTree } from "./tree.js";
-import { buildChips, filterTree, activeSelection } from "./filters.js";
+import { snapshotNodes, buildTree, copyJson } from "./tree.js";
+import { buildChips, filterTree } from "./filters.js";
 import { drawMap } from "./draw.js";
-import { cssVar, statusCss, resolveTheme, computedReader } from "./theme.js";
+import { cssVar, statusCss, mapCss, resolveTheme, computedReader } from "./theme.js";
 import { VIEW, panIntoView } from "./zoom.js";
 import { REVEAL, beamAngle, beamDeg, revealNode, revealGlobal, partialPath, reducedMotion, radarSvg } from "./reveal.js";
 import { resolveIcons } from "./icons.js";
@@ -13,15 +13,10 @@ import { openSharePanel } from "./share-panel.js";
 export const DEFAULT_OPTIONS = { title: "", height: 900, zoom: true, show_share: true, more_info: false, filters: false, selected_tags: undefined };
 
 const GESTURE_HOLD_MS = 15000;
-const DISC_FILL = "#0f172a";
-const LABEL_OUTLINE = "#0b1220";
-
-function copy(v) {
-  return JSON.parse(JSON.stringify(v));
-}
 
 function shellCss() {
   const text = cssVar("text"), hi = cssVar("highlight");
+  const shared = mapCss(text, cssVar("ring"));
   return `
 :host{display:block}
 ha-card{display:block;position:relative;font-family:${cssVar("font")};overflow:hidden;background:${cssVar("background")};color:${text};border:1px solid rgba(148,163,184,.12)}
@@ -39,19 +34,14 @@ ha-card{display:block;position:relative;font-family:${cssVar("font")};overflow:h
 .chip[aria-pressed="true"]{border-color:${hi};background:rgba(96,165,250,.18)}
 .wrap{position:relative}
 svg.map{font-family:${cssVar("font")};width:100%;height:auto;display:block;max-height:${cssHeight(900)};user-select:none;-webkit-user-select:none}
-.ring{fill:none;stroke:${cssVar("ring")};stroke-width:1}
-.lk{fill:none;stroke-width:1.4;opacity:.45}
-.lk.strong{stroke-width:2.6;opacity:.75}
+${shared[0]}
 .lk.live{stroke-dasharray:6 10;animation:flow 1.6s linear infinite;opacity:.8}
 .lk.strong.live{stroke-dasharray:10 8}
 @keyframes flow{to{stroke-dashoffset:-32}}
 @keyframes spin{to{transform:rotate(360deg)}}
-.disc{fill:${DISC_FILL};stroke-width:2.2}
-.halo{opacity:.13;filter:url(#kblur)}
+${shared[1]}
 .pulse{animation:pulse 1.8s ease-in-out infinite}
 @keyframes pulse{50%{stroke-width:5}}
-.hlab{fill:${text};font-size:15px;font-weight:600;text-anchor:middle;paint-order:stroke;stroke:${LABEL_OUTLINE};stroke-width:4px}
-.dlab{fill:${text}}
 .node{cursor:pointer}
 .node:focus{outline:none}
 .node:focus-visible{outline:none}
@@ -120,7 +110,7 @@ export class KeplerElement extends HTMLElement {
   }
 
   get nodes() {
-    return copy(this._list);
+    return copyJson(this._list);
   }
 
   set nodes(value) {
@@ -225,7 +215,7 @@ export class KeplerElement extends HTMLElement {
       if (!node) return;
       const ev = new CustomEvent("kepler-node-tap", {
         bubbles: true, composed: true, cancelable: true,
-        detail: { key: node.key, node: copy(node.source) },
+        detail: { key: node.key, node: copyJson(node.source) },
       });
       const ok = this.dispatchEvent(ev);
       if (ok && this._opts.more_info && node.entity) {

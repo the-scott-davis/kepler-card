@@ -1,7 +1,7 @@
 // Share as image and video. Built from a copy of the tree that carries no key, entity, tag or extra.
 import { esc, trunc } from "./util.js";
 import { drawMap } from "./draw.js";
-import { defaultTheme, parseBackground, statusCss } from "./theme.js";
+import { defaultTheme, parseBackground, statusCss, mapCss, DISC_FILL, LABEL_OUTLINE } from "./theme.js";
 import { iconPath } from "./icons.js";
 import { REVEAL, beamAngle, beamDeg, revealNode, revealGlobal, partialPath } from "./reveal.js";
 
@@ -9,9 +9,6 @@ import { REVEAL, beamAngle, beamDeg, revealNode, revealGlobal, partialPath } fro
 export const SHARE = { w: 1140, h: 1220, mapY: 80 };
 // The share video: frames per second, seconds the opening frame is held, seconds the finished map is held.
 export const REC = { fps: 30, lead: 0.25, tail: 0.8 };
-
-const LABEL_OUTLINE = "#0b1220";
-const DISC_FILL = "#0f172a";
 
 // Generic names for shared maps, from the node's icon. First match wins. Each entry lists whole icon words: the
 // icon name loses its "mdi:" prefix and is split on "-" and digits, so "cellphone-android" is "cellphone android"
@@ -159,11 +156,8 @@ function cleanTheme(theme) {
 }
 
 function shareCss(theme) {
-  return statusCss(theme) +
-    `.ring{fill:none;stroke:${theme.ring};stroke-width:1}.lk{fill:none;stroke-width:1.4;opacity:.45}.lk.strong{stroke-width:2.6;opacity:.75}` +
-    `.lk.live{opacity:.8}.disc{fill:${DISC_FILL};stroke-width:2.2}.halo{opacity:.13;filter:url(#kblur)}` +
-    `.hlab{fill:${theme.text};font-size:15px;font-weight:600;text-anchor:middle;paint-order:stroke;stroke:${LABEL_OUTLINE};stroke-width:4px}` +
-    `.dlab{fill:${theme.text}}`;
+  const shared = mapCss(theme.text, theme.ring);
+  return statusCss(theme) + shared[0] + ".lk.live{opacity:.8}" + shared[1];
 }
 
 function bgDefs(bg) {

@@ -85,3 +85,19 @@ test("register defines again in the swapped registry after whenDefined(home-assi
   assert.equal(swapped.get(ELEMENT_NAME), A);
   assert.equal(win.customCards.length, 1);
 });
+
+test("register warns once on a name collision, not again after whenDefined", async () => {
+  const reg = fakeReg();
+  const win = { customElements: reg };
+  class A {}
+  class B {}
+  reg.define(ELEMENT_NAME, A);
+  const c = capture();
+  try {
+    register(B, win);
+    reg.resolve();
+    await new Promise((r) => setTimeout(r, 0));
+  } finally { c.restore(); }
+  assert.equal(c.calls.length, 1);
+  assert.equal(reg.get(ELEMENT_NAME), A);
+});

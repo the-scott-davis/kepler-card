@@ -7,7 +7,7 @@ function isObj(v) {
 function nonEmpty(v) {
   return typeof v === "string" && v !== "";
 }
-function copyJson(v) {
+export function copyJson(v) {
   const s = JSON.stringify(v);
   if (typeof s !== "string") throw new Error("not JSON");
   return JSON.parse(s);
