@@ -4,7 +4,9 @@ import { win } from "./dom.js";
 
 export function installShareStubs(opts) {
   opts = opts || {};
-  const calls = { fills: [], gradients: [], texts: [], recorders: [], tracks: [], urls: [], frames: 0, stops: [], strokes: [] };
+  const calls = { fills: [], gradients: [], texts: [], recorders: [], tracks: [], urls: [], frames: 0, stops: [], strokes: [],
+    // Added for per-frame work checks: Path2D and radial gradient construction counts, plus per-call extras.
+    path2d: 0, path2dD: [], radials: 0, fillAlphas: [], strokeAlphas: [], fillPaths: [], strokePaths: [] };
   const saved = [];
   const set = (obj, name, value) => {
     saved.push([obj, name, Object.getOwnPropertyDescriptor(obj, name)]);
@@ -13,17 +15,19 @@ export function installShareStubs(opts) {
 
   const makeCtx = (canvas) => {
     const ctx = { canvas, fillStyle: "", strokeStyle: "", font: "", globalAlpha: 1, lineWidth: 1, lineCap: "butt", lineJoin: "miter", textAlign: "left", textBaseline: "alphabetic" };
-    const rec = () => calls.fills.push(ctx.fillStyle);
+    const rec = (path) => { calls.fills.push(ctx.fillStyle); calls.fillAlphas.push(ctx.globalAlpha); calls.fillPaths.push(path && path.d !== undefined ? path.d : null); };
+    const strk = (path) => { calls.strokes.push(ctx.strokeStyle); calls.strokeAlphas.push(ctx.globalAlpha); calls.strokePaths.push(path && path.d !== undefined ? path.d : null); };
     ["save", "restore", "translate", "scale", "rotate", "setTransform", "beginPath", "moveTo", "lineTo", "arc", "closePath", "setLineDash", "drawImage", "rect", "roundRect"]
       .forEach((n) => { ctx[n] = () => {}; });
-    ctx.stroke = () => calls.strokes.push(ctx.strokeStyle);
-    ctx.fill = () => rec();
+    ctx.stroke = (path) => strk(path);
+    ctx.fill = (path) => rec(path);
     ctx.fillRect = () => { calls.frames++; rec(); };
-    ctx.strokeText = () => calls.strokes.push(ctx.strokeStyle);
+    ctx.strokeText = () => strk();
     ctx.fillText = (text) => { calls.texts.push(text); rec(); };
     ctx.createRadialGradient = () => {
       const g = { stops: [], addColorStop(o, c) { g.stops.push([o, c]); } };
       calls.gradients.push(g);
+      calls.radials++;
       return g;
     };
     return ctx;
@@ -55,7 +59,7 @@ export function installShareStubs(opts) {
   set(globalThis, "HTMLCanvasElement", win.HTMLCanvasElement);
   set(globalThis, "Blob", win.Blob);
   set(globalThis, "File", win.File);
-  set(globalThis, "Path2D", class Path2D { constructor(d) { this.d = d; } });
+  set(globalThis, "Path2D", class Path2D { constructor(d) { this.d = d; calls.path2d++; calls.path2dD.push(d); } });
   set(globalThis, "Image", class Image {
     set src(v) { this._src = v; calls.imageSrc = v; setTimeout(() => (opts.imageError ? this.onerror && this.onerror() : this.onload && this.onload()), 0); }
     get src() { return this._src; }
