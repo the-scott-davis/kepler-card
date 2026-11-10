@@ -8,7 +8,7 @@ const win = dom.window;
 
 const names = [
   "window", "document", "HTMLElement", "SVGElement", "Node", "customElements", "CustomEvent",
-  "Event", "MouseEvent", "getComputedStyle", "requestAnimationFrame", "cancelAnimationFrame", "navigator",
+  "Event", "MouseEvent", "KeyboardEvent", "FocusEvent", "getComputedStyle", "requestAnimationFrame", "cancelAnimationFrame", "navigator",
 ];
 for (const name of names) {
   const value = name === "window" ? win : win[name];

@@ -61,6 +61,10 @@ export function drawMap(tree, opts) {
     return `<g class="ic st-${st}" data-icon="${esc(icon)}" transform="translate(${f1(p.x - size / 2)} ${f1(p.y - size / 2)}) scale(${(size / 24).toFixed(4)})" pointer-events="none"><path d="${d ? esc(d) : ""}"/></g>`;
   };
 
+  const interactive = opts.interactive === true;
+  const nodeG = {};
+  const a11y = (k, n) => (interactive ? ` tabindex="0" role="button" aria-label="${esc(n.label ? String(n.label) : k)}"` : "");
+
   const placed = [{ x0: C.x - 45, y0: C.y + ROOT_RADIUS + 5, x1: C.x + 45, y1: C.y + ROOT_RADIUS + 30 }];
   hubKeys.forEach((k) => {
     const n = nodes[k];
@@ -94,7 +98,7 @@ export function drawMap(tree, opts) {
     if (!(isRoot || p.y >= C.y - 4)) sides.unshift(sides.splice(1, 1)[0]);
     const pick = isRoot ? sides[0] : (sides.find((s) => cost(s) === 0) || sides.reduce((a, s) => (cost(s) < cost(a) ? s : a)));
     if (!isRoot) placed.push(box(pick));
-    out.gfx += `<g class="node hub st-${st}${isRoot ? " root" : ""}" data-key="${esc(k)}">` +
+    nodeG[k] = `<g class="node hub st-${st}${isRoot ? " root" : ""}" data-key="${esc(k)}"${a11y(k, n)}>` +
       `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="${r + 9}" class="halo st-${st}"/>` +
       `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="${r}" class="disc st-${st}${st === "stale" ? " pulse" : ""}"/>` +
       iconG(p, r, icon, st) + `</g>`;
@@ -117,7 +121,7 @@ export function drawMap(tree, opts) {
     const tx = C.x + tr * Math.cos(p.a), ty = C.y + tr * Math.sin(p.a);
     const rot = flip ? deg + 180 : deg;
     const text = trunc(n.label, maxChars);
-    out.gfx += `<g class="node dev st-${st}" data-key="${esc(k)}">` +
+    nodeG[k] = `<g class="node dev st-${st}" data-key="${esc(k)}"${a11y(k, n)}>` +
       (live ? `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="21" class="halo st-${st}"/>` : "") +
       `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="${DEVICE_RADIUS}" class="disc st-${st}${st === "stale" ? " pulse" : ""}"/>` +
       iconG(p, DEVICE_RADIUS, icon, st) +
@@ -125,5 +129,6 @@ export function drawMap(tree, opts) {
     scene.nodes.push({ k, x: p.x, y: p.y, r: DEVICE_RADIUS, color: col(st), icon, halo: live });
     scene.devLabels.push({ k, x: tx, y: ty, rot, anchor: flip ? "end" : "start", size: fs, text, color: theme.text });
   });
+  out.gfx = (interactive ? keys : hubKeys.concat(devKeys)).map((k) => nodeG[k]).join("");
   return out;
 }

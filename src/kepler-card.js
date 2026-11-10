@@ -3,7 +3,7 @@ import { snapshotNodes, buildTree } from "./tree.js";
 import { buildChips, filterTree, activeSelection } from "./filters.js";
 import { drawMap } from "./draw.js";
 import { cssVar, statusCss, resolveTheme, computedReader } from "./theme.js";
-import { VIEW } from "./zoom.js";
+import { VIEW, panIntoView } from "./zoom.js";
 import { REVEAL, beamAngle, beamDeg, revealNode, revealGlobal, partialPath, reducedMotion, radarSvg } from "./reveal.js";
 import { resolveIcons } from "./icons.js";
 import { wireZoom } from "./gestures.js";
@@ -52,6 +52,9 @@ svg.map{font-family:${cssVar("font")};width:100%;height:auto;display:block;max-h
 .hlab{fill:${text};font-size:15px;font-weight:600;text-anchor:middle;paint-order:stroke;stroke:${LABEL_OUTLINE};stroke-width:4px}
 .dlab{fill:${text}}
 .node{cursor:pointer}
+.node:focus{outline:none}
+.node:focus-visible{outline:none}
+.node:focus-visible .disc{stroke:${hi};stroke-width:3px}
 .node:hover .disc{stroke-width:4}
 .node:hover .dlab{font-weight:600}
 ${statusCss(null)}
@@ -74,7 +77,7 @@ const SHELL = `<style>${shellCss()}</style>
 <div class="head"><div class="title"></div><button class="sharebtn" type="button" title="Share an image or video of the map">Share</button></div>
 <div class="chips" hidden></div>
 <div class="wrap">
-<svg class="map" viewBox="${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}" role="img" aria-label="Map"><defs><filter id="kblur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter></defs><g class="content"></g></svg>
+<svg class="map" viewBox="${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}" role="group" aria-label="Map"><defs><filter id="kblur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter></defs><g class="content"></g></svg>
 <div class="tip"></div>
 <div class="zoomctl"><button class="zin" type="button" title="Zoom in" aria-label="Zoom in">+</button><button class="zout" type="button" title="Zoom out" aria-label="Zoom out">&minus;</button><button class="zfit" type="button" title="Whole map" aria-label="Whole map">&#9635;</button></div>
 </div>
@@ -215,19 +218,26 @@ export class KeplerElement extends HTMLElement {
       const el = ev.target && ev.target.closest ? ev.target.closest(".node[data-key]") : null;
       return el ? el : null;
     };
-    svg.addEventListener("click", (ev) => {
-      const el = nodeAt(ev);
-      if (!el) return;
-      const node = this._tree.nodes[el.dataset.key];
+    const tap = (el) => {
+      const node = el ? this._tree.nodes[el.dataset.key] : null;
       if (!node) return;
-      const tap = new CustomEvent("kepler-node-tap", {
+      const ev = new CustomEvent("kepler-node-tap", {
         bubbles: true, composed: true, cancelable: true,
         detail: { key: node.key, node: copy(node.source) },
       });
-      const ok = this.dispatchEvent(tap);
+      const ok = this.dispatchEvent(ev);
       if (ok && this._opts.more_info && node.entity) {
         this.dispatchEvent(new CustomEvent("hass-more-info", { bubbles: true, composed: true, detail: { entityId: node.entity } }));
       }
+    };
+    svg.addEventListener("click", (ev) => tap(nodeAt(ev)));
+    svg.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter" && ev.key !== " " && ev.key !== "Spacebar") return;
+      if (ev.repeat || ev.ctrlKey || ev.altKey || ev.metaKey) return;
+      const el = nodeAt(ev);
+      if (!el) return;
+      if (ev.key !== "Enter") ev.preventDefault(); // Space must not scroll the page
+      tap(el);
     });
     const place = (ev) => {
       const r = wrap.getBoundingClientRect();
@@ -236,6 +246,25 @@ export class KeplerElement extends HTMLElement {
       tip.style.left = Math.max(4, x) + "px";
       tip.style.top = Math.max(4, y) + "px";
     };
+    // Keyboard focus shows the label next to the node; `pan` also brings it into a zoomed view.
+    this._showFocusTip = (el, pan) => {
+      const node = el ? this._tree.nodes[el.dataset.key] : null;
+      if (!node) return;
+      // A mouse press focuses the node too. Only keyboard focus pans the view and shows the tip.
+      let kb = true;
+      try { kb = el.matches(":focus-visible"); } catch (e) { kb = true; }
+      if (!kb) return;
+      if (pan) this._panIntoView(node.key);
+      tip.textContent = node.label;
+      tip.style.opacity = "1";
+      const d = el.querySelector(".disc") || el, b = d.getBoundingClientRect();
+      place({ clientX: b.left + b.width / 2, clientY: b.top + b.height / 2 });
+    };
+    svg.addEventListener("focusin", (ev) => this._showFocusTip(nodeAt(ev), !this._restoringFocus));
+    svg.addEventListener("focusout", (ev) => {
+      const to = ev.relatedTarget && ev.relatedTarget.closest ? ev.relatedTarget.closest(".node[data-key]") : null;
+      if (!to) tip.style.opacity = "0";
+    });
     svg.addEventListener("mouseover", (ev) => {
       const el = nodeAt(ev);
       const node = el ? this._tree.nodes[el.dataset.key] : null;
@@ -249,6 +278,15 @@ export class KeplerElement extends HTMLElement {
       const to = ev.relatedTarget && ev.relatedTarget.closest ? ev.relatedTarget.closest(".node[data-key]") : null;
       if (!to) tip.style.opacity = "0";
     });
+  }
+
+  /** With zoom on, pans the view the least that brings a node into it. */
+  _panIntoView(key) {
+    if (!this._view || !this._zoom || !this._drawn) return;
+    const v = panIntoView(this._view, this._drawn.pos[key]);
+    if (v === this._view) return;
+    this._view = v;
+    this._zoom.apply();
   }
 
   _wireZoom() {
@@ -379,13 +417,38 @@ export class KeplerElement extends HTMLElement {
     this._applyOptions();
     this._renderChips();
     const tree = this._viewTree();
-    const D = drawMap(tree, {});
+    const D = drawMap(tree, { interactive: true });
     const svg = this._q("svg.map");
+    const had = this.shadowRoot.activeElement;
+    const hadNode = had && had.closest ? had.closest(".node[data-key]") : null;
+    const focusKey = hadNode ? hadNode.dataset.key : undefined;
+    const prevNodes = (this._drawn && this._drawn.tree && this._drawn.tree.nodes) || this._tree.nodes;
     this._q("g.content").innerHTML = `<circle class="ring" cx="${D.C.x}" cy="${D.C.y}" r="370"/>${D.links}${D.gfx}${D.labels}`;
     this._hideTip();
     resolveIcons(svg);
     this._drawn = { tree, pos: D.pos, C: D.C };
     this._zoom.apply();
+    if (focusKey !== undefined) {
+      const drawn = {};
+      Array.from(svg.querySelectorAll(".node[data-key]")).forEach((n) => { drawn[n.dataset.key] = n; });
+      // The node itself, else its nearest drawn ancestor (as it was before the redraw), else the root.
+      let target = drawn[focusKey] || null;
+      const seen = {};
+      for (let k = prevNodes[focusKey] ? prevNodes[focusKey].parent : null; !target && k != null && !seen[k]; k = prevNodes[k] ? prevNodes[k].parent : null) {
+        seen[k] = true;
+        target = drawn[k] || null;
+      }
+      if (!target && tree.root !== null) target = drawn[tree.root] || null;
+      if (target && typeof target.focus === "function") {
+        this._restoringFocus = true;
+        try {
+          try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
+          this._showFocusTip(target, false);
+        } finally {
+          this._restoringFocus = false;
+        }
+      }
+    }
     if (tree.root !== null && !this._revealed) this._playReveal();
   }
 

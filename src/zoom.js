@@ -19,3 +19,19 @@ export function zoomView(view, anchor, now, factor, base = VIEW, max = ZOOM_MAX)
     w, h,
   };
 }
+
+// The view moved the least that puts `pos` inside it with `margin` map units to spare. `view` null (whole map)
+// and a point already inside come back unchanged (same object). Result stays inside the map.
+export function panIntoView(view, pos, margin = 50, base = VIEW) {
+  if (!view || !pos) return view;
+  const axis = (p, v, size, lo, span) => {
+    const m = Math.min(margin, size / 2);
+    let n = v;
+    if (p < v + m) n = p - m;
+    else if (p > v + size - m) n = p + m - size;
+    return Math.min(Math.max(n, lo), lo + span - size);
+  };
+  const x = axis(pos.x, view.x, view.w, base.x, base.w);
+  const y = axis(pos.y, view.y, view.h, base.y, base.h);
+  return x === view.x && y === view.y ? view : { x, y, w: view.w, h: view.h };
+}

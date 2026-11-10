@@ -104,3 +104,31 @@ test("resolveIcons fills registered maps without polling when ha-icon is undefin
   const g = svg.querySelector('g.ic[data-icon="mdi:router"]');
   assert.equal(g.firstElementChild.getAttribute("d"), "M1,1");
 });
+
+test("interactive nodes carry focus attributes and follow tree.order", () => {
+  const long = "A very long device label over twenty-six chars";
+  const t = buildTree([
+    { key: "r", label: "Router", status: "online" },
+    { key: "d0", parent: "r", label: long, status: "online" },
+    { key: "h", parent: "r", label: long + " hub", status: "stale", kind: "hub" },
+    { key: "d1", parent: "h", label: "", status: "recent" },
+    { key: "d2", parent: "r", label: "Q&A <x>", status: "new" },
+  ], quiet);
+  const plain = drawMap(t, {});
+  const out = drawMap(t, { interactive: true });
+  const groups = [...out.gfx.matchAll(/<g class="node [^"]*" data-key="([^"]*)"([^>]*)>/g)];
+  const drawn = t.order.filter((k) => out.pos[k]);
+  assert.deepEqual(groups.map((m) => m[1]), drawn);
+  assert.equal(groups.length, 5);
+  groups.forEach((m) => {
+    const label = t.nodes[m[1]].label || m[1];
+    const esc = label.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    assert.ok(m[2].includes('tabindex="0"') && m[2].includes('role="button"'), m[1]);
+    assert.ok(m[2].includes(`aria-label="${esc}"`), m[1] + m[2]);
+  });
+  assert.ok(out.gfx.includes(`aria-label="${long}"`));
+  assert.equal(out.labels, plain.labels);
+  assert.equal(out.links, plain.links);
+  assert.deepEqual(out.scene, plain.scene);
+  assert.ok(!/tabindex|role=|aria-label/.test(plain.gfx + plain.labels + plain.links));
+});

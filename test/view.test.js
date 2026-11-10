@@ -1,4 +1,4 @@
-import "./helpers/dom.js";
+import { win } from "./helpers/dom.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { KeplerElement } from "../src/kepler-card.js";
@@ -347,5 +347,55 @@ test("assigning unchanged options during a reveal neither ends it nor draws", ()
   el.options = el.options;
   assert.equal(el._revealing, true);
   assert.equal(el._drawCount, n);
+  el.remove();
+});
+
+test("focusing a node outside the zoomed view pans it into view", async () => {
+  const { panIntoView } = await import("../src/zoom.js");
+  const v = { x: 0, y: 0, w: 200, h: 200 };
+  assert.equal(panIntoView(v, { x: 100, y: 100 }), v);
+  assert.equal(panIntoView(null, { x: 500, y: 500 }), null);
+  const p = panIntoView(v, { x: 600, y: -30 });
+  assert.equal(p.w, 200);
+  assert.ok(600 >= p.x && 600 <= p.x + p.w && -30 >= p.y && -30 <= p.y + p.h);
+
+  const el = ended(mount(NODES(), { zoom: true }));
+  const key = "lamp";
+  const pos = el._drawn.pos[key];
+  el._view = { x: pos.x + 400 > 1070 - 100 ? -70 : pos.x + 400, y: pos.y, w: 100, h: 100 };
+  const before = el._view;
+  const node = sr(el, `.node[data-key="${key}"]`);
+  node.matches = () => true; // jsdom has no keyboard-focus heuristic
+  node.dispatchEvent(new win.FocusEvent("focusin", { bubbles: true, composed: true }));
+  const v2 = el._view;
+  assert.notEqual(v2, before);
+  assert.ok(pos.x >= v2.x && pos.x <= v2.x + v2.w && pos.y >= v2.y && pos.y <= v2.y + v2.h);
+  assert.equal(sr(el, "svg.map").getAttribute("viewBox").split(" ")[0], v2.x.toFixed(1));
+  // Already visible: unchanged. Zoom off: no view at all.
+  node.dispatchEvent(new win.FocusEvent("focusin", { bubbles: true, composed: true }));
+  assert.equal(el._view, v2);
+  el.options = { zoom: false };
+  node.dispatchEvent(new win.FocusEvent("focusin", { bubbles: true, composed: true }));
+  assert.equal(el._view, null);
+  el.remove();
+});
+
+test("mouse-originated focus does not pan; a redraw after panning away keeps the view", () => {
+  const el = ended(mount(NODES(), { zoom: true }));
+  const pos = el._drawn.pos.lamp;
+  el._view = { x: pos.x + 400 > 970 ? -70 : pos.x + 400, y: pos.y, w: 100, h: 100 };
+  const before = el._view;
+  const node = sr(el, '.node[data-key="lamp"]');
+  node.matches = () => false;
+  node.dispatchEvent(new win.FocusEvent("focusin", { bubbles: true, composed: true }));
+  assert.equal(el._view, before);
+  // Keyboard-focused node, then the user pans away, then a redraw must not snap back.
+  const n2 = sr(el, '.node[data-key="lamp"]');
+  n2.setAttribute("tabindex", "0");
+  n2.focus();
+  el._view = before;
+  el.nodes = NODES().concat([{ key: "extra", parent: "r", label: "Extra" }]);
+  assert.equal(el._view, before);
+  assert.equal(el.shadowRoot.activeElement, sr(el, '.node[data-key="lamp"]'));
   el.remove();
 });
