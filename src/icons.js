@@ -2,6 +2,9 @@
 // outside the SVG, read once per icon name and copied into every registered map.
 const PATHS = new Map();
 const PENDING = new Set();
+// Names whose polling gave up. They stay failed for the life of the page: nothing tells the card a retry
+// could now succeed, and retrying would add a hidden ha-icon and 50 polls on every redraw.
+const FAILED = new Set();
 const MAPS = new Set();
 let waiting = false;
 
@@ -31,12 +34,13 @@ function later(fn, ms) {
 function lookup() {
   const names = [];
   MAPS.forEach((svg) => {
+    if (!svg.isConnected) { MAPS.delete(svg); return; }
     svg.querySelectorAll("g.ic").forEach((g) => {
       const n = g.getAttribute("data-icon");
       if (n && names.indexOf(n) === -1) names.push(n);
     });
   });
-  const missing = names.filter((n) => !PATHS.has(n));
+  const missing = names.filter((n) => !PATHS.has(n) && !FAILED.has(n));
   if (!missing.length) return;
   let box = document.getElementById("kepler-iconsrc");
   if (!box) {
@@ -65,6 +69,7 @@ function lookup() {
         later(poll, 100);
       } else {
         PENDING.delete(name);
+        FAILED.add(name);
         el.remove();
       }
     };
@@ -90,4 +95,13 @@ export function resolveIcons(svg) {
   if (waiting) return;
   waiting = true;
   customElements.whenDefined("ha-icon").then(() => { waiting = false; lookup(); });
+}
+
+/** Test only: forget every cached path, failed name and registered map. Polls already running are not stopped. */
+export function resetIconsForTest() {
+  PATHS.clear();
+  PENDING.clear();
+  FAILED.clear();
+  MAPS.clear();
+  waiting = false;
 }

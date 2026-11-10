@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { drawMap } from "../src/draw.js";
 import { buildTree, FALLBACK_ICON } from "../src/tree.js";
-import { resolveIcons, setIconPath, iconPath } from "../src/icons.js";
+import { resolveIcons, setIconPath, iconPath, resetIconsForTest } from "../src/icons.js";
 import { defaultTheme } from "../src/theme.js";
 
 const quiet = () => {};
@@ -131,4 +131,94 @@ test("interactive nodes carry focus attributes and follow tree.order", () => {
   assert.equal(out.links, plain.links);
   assert.deepEqual(out.scene, plain.scene);
   assert.ok(!/tabindex|role=|aria-label/.test(plain.gfx + plain.labels + plain.links));
+});
+
+// The tests below define a stub ha-icon, so they run after the "ha-icon is undefined" test above.
+// The stub renders a path only for names in RESOLVABLE, the way ha-icon fills its shadow tree.
+const RESOLVABLE = new Map();
+function defineHaIconStub() {
+  if (customElements.get("ha-icon")) return;
+  customElements.define("ha-icon", class extends HTMLElement {
+    connectedCallback() {
+      const d = RESOLVABLE.get(this.getAttribute("icon"));
+      if (!d || this.shadowRoot) return;
+      const root = this.attachShadow({ mode: "open" });
+      const inner = document.createElement("ha-svg-icon");
+      root.appendChild(inner);
+      const innerRoot = inner.attachShadow({ mode: "open" });
+      innerRoot.innerHTML = `<svg><path d="${d}"></path></svg>`;
+    }
+  });
+}
+
+function mapWith(icons, connect = true) {
+  const host = document.createElement("div");
+  host.innerHTML = `<svg class="map">${icons.map((n) => `<g class="ic" data-icon="${n}"><path></path></g>`).join("")}</svg>`;
+  if (connect) document.body.appendChild(host);
+  return { host, svg: host.querySelector("svg") };
+}
+
+const haIcons = (name) => [...document.querySelectorAll("#kepler-iconsrc ha-icon")].filter((el) => el.getAttribute("icon") === name);
+
+function freshIcons() {
+  resetIconsForTest();
+  const box = document.getElementById("kepler-iconsrc");
+  if (box) box.remove();
+  defineHaIconStub();
+}
+
+test("a detached map is dropped by lookup and its icons are not looked up", () => {
+  freshIcons();
+  setIconPath("mdi:known", "M1,1");
+  const gone = mapWith(["mdi:known"]);
+  resolveIcons(gone.svg);
+  assert.equal(document.getElementById("kepler-iconsrc"), null);
+  gone.host.remove();
+  // The detached map gains an icon nobody has looked up; a lookup started by another map must skip it.
+  gone.svg.insertAdjacentHTML("beforeend", '<g class="ic" data-icon="mdi:gone-one"><path></path></g>');
+  RESOLVABLE.set("mdi:live-one", "M2,2");
+  const live = mapWith(["mdi:live-one"]);
+  resolveIcons(live.svg);
+  assert.equal(haIcons("mdi:gone-one").length, 0);
+  assert.equal(iconPath("mdi:live-one"), "M2,2");
+  live.host.remove();
+});
+
+test("a map registered while detached starts no lookup", () => {
+  freshIcons();
+  const { svg } = mapWith(["mdi:never-attached"], false);
+  resolveIcons(svg);
+  assert.equal(haIcons("mdi:never-attached").length, 0);
+  assert.equal(iconPath("mdi:never-attached"), undefined);
+});
+
+test("an icon that fails after 50 tries is not polled again and leaves no ha-icon behind", (t) => {
+  freshIcons();
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const { host, svg } = mapWith(["mdi:no-such-icon"]);
+  resolveIcons(svg);
+  assert.equal(haIcons("mdi:no-such-icon").length, 1);
+  for (let i = 0; i < 60; i++) t.mock.timers.tick(100);
+  assert.equal(haIcons("mdi:no-such-icon").length, 0);
+  resolveIcons(svg);
+  resolveIcons();
+  assert.equal(haIcons("mdi:no-such-icon").length, 0);
+  assert.equal(document.querySelectorAll("#kepler-iconsrc ha-icon").length, 0);
+  assert.equal(iconPath("mdi:no-such-icon"), undefined);
+  host.remove();
+});
+
+test("a resolvable icon fills every connected map, including one registered after it resolved", () => {
+  freshIcons();
+  RESOLVABLE.set("mdi:lamp-ok", "M4,4");
+  const a = mapWith(["mdi:lamp-ok"]);
+  const b = mapWith(["mdi:lamp-ok", "mdi:lamp-ok"]);
+  resolveIcons(a.svg);
+  resolveIcons(b.svg);
+  assert.equal(iconPath("mdi:lamp-ok"), "M4,4");
+  const c = mapWith(["mdi:lamp-ok"]);
+  resolveIcons(c.svg);
+  [a, b, c].forEach(({ svg }) => svg.querySelectorAll("g.ic path").forEach((p) => assert.equal(p.getAttribute("d"), "M4,4")));
+  assert.equal(document.querySelectorAll("#kepler-iconsrc ha-icon").length, 0);
+  [a, b, c].forEach(({ host }) => host.remove());
 });
