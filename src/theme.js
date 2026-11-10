@@ -32,6 +32,9 @@ export const THEME_DEFAULTS = {
   tooltipText: "#e2e8f0"
 };
 
+export const DISC_FILL = "#0f172a";
+export const LABEL_OUTLINE = "#0b1220";
+
 const STATUS_KEYS = ["online", "recent", "stale", "new", "unknown"];
 const BODY_FONT = "--ha-font-family-body";
 
@@ -148,4 +151,15 @@ export function statusCss(theme) {
     out += ".ic.st-" + st + "{fill:" + col + "}";
   });
   return out;
+}
+
+// The map rules the live card and the share image have in common, as [link rules, node rules]. Callers put their
+// own rules between the two parts, so the order within each stylesheet is kept.
+export function mapCss(text, ring) {
+  return [
+    ".ring{fill:none;stroke:" + ring + ";stroke-width:1}.lk{fill:none;stroke-width:1.4;opacity:.45}.lk.strong{stroke-width:2.6;opacity:.75}",
+    ".disc{fill:" + DISC_FILL + ";stroke-width:2.2}.halo{opacity:.13;filter:url(#kblur)}" +
+    ".hlab{fill:" + text + ";font-size:15px;font-weight:600;text-anchor:middle;paint-order:stroke;stroke:" + LABEL_OUTLINE + ";stroke-width:4px}" +
+    ".dlab{fill:" + text + "}"
+  ];
 }

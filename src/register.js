@@ -39,7 +39,11 @@ export function register(cls, win) {
   const reg = w.customElements;
   if (reg && reg.whenDefined) {
     reg.whenDefined("home-assistant")
-      .then(function () { defineElement(cls, w); })
+      .then(function () {
+        // Same registry and name already held: the first call already defined or warned, so don't warn again.
+        if (w.customElements === reg && reg.get(ELEMENT_NAME)) return;
+        defineElement(cls, w);
+      })
       .catch(function (e) { console.warn("Kepler: " + ELEMENT_NAME + " define failed", e); });
   }
   pushCardEntry(w);
