@@ -8,7 +8,10 @@ export const DEVICE_RADIUS = 15;
 
 const HUB_R1 = 110; // first hub tier
 const HUB_STEP = 125;
-const HUB_R_MAX = DEVICE_RING - HUB_RADIUS - 20; // hub discs stay inside the device ring
+// Drawn halos: hub r+9, device 21. Leaves keep their halos clear of hub halos too (GAP apart).
+const HUB_HALO = HUB_RADIUS + 9;
+const DEVICE_HALO = 21;
+const HUB_R_MAX = DEVICE_RING - HUB_HALO - DEVICE_HALO - 4; // deepest hubs leave the ring's leaves a clear gap
 const GAP = 4;
 const MIN_HUB_DIST = 2 * HUB_RADIUS + GAP;
 

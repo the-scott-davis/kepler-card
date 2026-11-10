@@ -37,11 +37,17 @@ export function drawMap(tree, opts) {
     const cx = mx + (C.x - mx) * bend, cy = my + (C.y - my) * bend;
     return `M${f1(p.x)},${f1(p.y)} Q${f1(cx)},${f1(cy)} ${f1(q.x)},${f1(q.y)}`;
   };
+  const linkPts = [];
   const link = (k, status, strong, d) => {
     const cls = `st-${status}${status === "online" ? " live" : ""}${strong ? " strong" : ""}`;
     const color = theme.link || col(status);
     out.links += `<path class="lk ${cls}" data-k="${esc(k)}" d="${d}"/>`;
     scene.links.push({ k, cls, d, color });
+    const v = d.match(/-?\d+(?:\.\d+)?/g).map(Number);
+    for (let i = 0; i <= 24; i++) {
+      const t = i / 24, u = 1 - t;
+      linkPts.push({ x: u * u * v[0] + 2 * u * t * v[2] + t * t * v[4], y: u * u * v[1] + 2 * u * t * v[3] + t * t * v[5], k });
+    }
   };
   hubKeys.forEach((k) => {
     if (k === root) return;
@@ -87,7 +93,8 @@ export function drawMap(tree, opts) {
       const b = box(s);
       return placed.reduce((m, o) => m + 4 * overlap(b, o), 0)
         + discs.reduce((m, o) => m + 3 * overlap(b, o), 0)
-        + near.reduce((m, o) => m + overlap(b, o), 0);
+        + near.reduce((m, o) => m + overlap(b, o), 0)
+        + 400 * linkPts.reduce((m, q) => m + (q.x > b.x0 && q.x < b.x1 && q.y > b.y0 && q.y < b.y1 ? 1 : 0), 0);
     };
     const sides = [
       { x: p.x, y1: p.y + r + 21, anchor: "middle" },
