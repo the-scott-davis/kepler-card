@@ -14,6 +14,7 @@ import {
   SHARE, REC, shareType, shareTree, shareSvg, paintFrame, framePump, videoType, sharePng, shareVideo, deliver,
 } from "../src/share.js";
 import { openSharePanel } from "../src/share-panel.js";
+import { KeplerElement } from "../src/kepler-card.js";
 
 const quiet = () => {};
 const S = { key: "SENTKEY", entity: "light.SENTENT", tag: "zone:SENTTAG", extra: "SENTEXTRA" };
@@ -525,4 +526,99 @@ test("paintFrame does not leak cached colours across themes or scenes", () => {
     paintFrame(ctx, scene2, TIMES.end, { theme: a, title: "Baseline" });
     assert.deepEqual(snap(c, m3), record("default").end);
   } finally { stubs.restore(); }
+});
+
+// Empty-map share behaviour on the real card element.
+customElements.define("kepler-share-empty-test", class extends KeplerElement {});
+const NODES = () => [
+  { key: "r", label: "Router", status: "online" },
+  { key: "lamp", parent: "r", label: "Lamp", tags: ["floor:down"] },
+  { key: "cam", parent: "r", label: "Camera", tags: ["floor:up"] },
+];
+function mountCard(nodes, opts) {
+  const el = document.createElement("kepler-share-empty-test");
+  if (nodes) el.nodes = nodes;
+  if (opts) el.options = opts;
+  document.body.appendChild(el);
+  return el;
+}
+const shareBtn = (el) => el.shadowRoot.querySelector(".sharebtn");
+const sharePop = (el) => el.shadowRoot.querySelector(".sharepop");
+const EMPTY_TITLE = "Nothing to share yet";
+const FULL_TITLE = "Share an image or video of the map";
+
+test("empty map: share button disabled and click opens no panel", () => {
+  const s = installShareStubs();
+  try {
+    const el = mountCard([]);
+    const b = shareBtn(el);
+    assert.equal(b.disabled, true);
+    assert.equal(b.title, EMPTY_TITLE);
+    b.click();
+    assert.equal(sharePop(el), null);
+    el.remove();
+  } finally { s.restore(); }
+});
+
+test("emptying the data closes an open panel and disables the button, then recovers", () => {
+  const s = installShareStubs();
+  try {
+    const el = mountCard(NODES());
+    const b = shareBtn(el);
+    assert.equal(b.disabled, false);
+    b.click();
+    assert.ok(sharePop(el));
+    el.nodes = [];
+    assert.equal(sharePop(el), null);
+    assert.equal(b.disabled, true);
+    assert.equal(b.title, EMPTY_TITLE);
+    el.nodes = NODES();
+    assert.equal(b.disabled, false);
+    assert.equal(b.title, FULL_TITLE);
+    b.click();
+    const pop = sharePop(el);
+    assert.ok(pop);
+    assert.ok(pop.querySelector(".thumb").src.startsWith("data:image/svg+xml"));
+    el.remove();
+  } finally { s.restore(); }
+});
+
+test("filters keep the root, so a non-matching selection leaves the button enabled", () => {
+  const s = installShareStubs();
+  try {
+    const el = mountCard(NODES(), { filters: true, selected_tags: ["no:such-tag"] });
+    const t = el._viewTree();
+    assert.ok(t.root, "filterTree keeps the root");
+    assert.ok(t.nodes[t.root]);
+    assert.equal(shareBtn(el).disabled, false);
+    shareBtn(el).click();
+    assert.ok(sharePop(el));
+    el.remove();
+  } finally { s.restore(); }
+});
+
+test("show_share false keeps the button hidden, with or without data", () => {
+  const s = installShareStubs();
+  try {
+    const el = mountCard(NODES(), { show_share: false });
+    assert.equal(shareBtn(el).hidden, true);
+    el.nodes = [];
+    el._draw();
+    assert.equal(shareBtn(el).hidden, true);
+    el.nodes = NODES();
+    el._draw();
+    assert.equal(shareBtn(el).hidden, true);
+    el.remove();
+  } finally { s.restore(); }
+});
+
+test("_toggleShare on an empty map opens nothing", () => {
+  const s = installShareStubs();
+  try {
+    const el = mountCard([]);
+    el._toggleShare();
+    assert.equal(sharePop(el), null);
+    assert.equal(el._share, null);
+    el.remove();
+  } finally { s.restore(); }
 });

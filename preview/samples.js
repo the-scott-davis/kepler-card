@@ -132,4 +132,5 @@ export const SAMPLES = {
   basic: { nodes: basic, changed: basicChanged },
   deep: { nodes: deep, changed: deepChanged },
   broken: { nodes: broken, changed: basic },
+  empty: { nodes: [], changed: basic },
 };

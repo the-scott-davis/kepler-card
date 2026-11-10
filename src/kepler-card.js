@@ -30,6 +30,7 @@ ha-card{display:block;position:relative;font-family:${cssVar("font")};overflow:h
 .title:empty{display:none}
 .sharebtn{font:inherit;font-size:12.5px;padding:4px 12px;border-radius:999px;border:1px solid ${hi};background:transparent;color:${text};cursor:pointer}
 .sharebtn[hidden]{display:none}
+.sharebtn:disabled{opacity:.45;cursor:default}
 .chips{display:flex;flex-wrap:wrap;gap:8px 16px;padding:6px 18px 0}
 .chips[hidden]{display:none}
 .chipgroup{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
@@ -129,6 +130,7 @@ export class KeplerElement extends HTMLElement {
     s.warnings.forEach((w) => console.warn(w));
     this._list = s.list;
     this._tree = buildTree(s.list);
+    this._syncShare();
     this._chipsDirty = true;
     this._requestDraw();
   }
@@ -365,10 +367,26 @@ export class KeplerElement extends HTMLElement {
     return this._opts.filters ? filterTree(this._tree, this._selected) : this._tree;
   }
 
+  _hasRoot() {
+    const t = this._tree ? this._viewTree() : null;
+    return !!(t && t.root != null && t.nodes && t.nodes[t.root]);
+  }
+
+  // Button state follows the view tree; also called straight from the data setter.
+  _syncShare() {
+    if (!this._shell) return;
+    const btn = this._q(".sharebtn");
+    const empty = !this._hasRoot();
+    btn.disabled = empty;
+    btn.title = empty ? "Nothing to share yet" : "Share an image or video of the map";
+    if (empty && this._share) this._share.close();
+  }
+
   _applyOptions() {
     const o = this._opts;
     this._q(".title").textContent = o.title == null ? "" : String(o.title);
     this._q(".sharebtn").hidden = o.show_share === false;
+    this._syncShare();
     this._q("svg.map").style.maxHeight = cssHeight(o.height);
     this._wireZoom();
     if (o.show_share === false && this._share) this._share.close();
@@ -559,6 +577,7 @@ export class KeplerElement extends HTMLElement {
   }
 
   _toggleShare() {
+    if (!this._hasRoot()) return;
     if (this._share) { this._share.close(); return; }
     const panel = openSharePanel(this._q("ha-card"), {
       svg: (h) => this.shareSvg(h),
