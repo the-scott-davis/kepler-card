@@ -29,6 +29,27 @@ test("shareType maps icons", () => {
   assert.equal(shareType("mdi:television"), "TV");
   assert.equal(shareType("mdi:cctv"), "Camera");
   assert.equal(shareType(undefined), "Device");
+  // Whole icon words only: no type from a word inside another word.
+  assert.equal(shareType("mdi:headphones"), "Device");
+  assert.equal(shareType("mdi:microphone"), "Device");
+  assert.equal(shareType("mdi:tennis"), "Device");
+  assert.equal(shareType("mdi:gymnastics"), "Device");
+  assert.equal(shareType("mdi:podcast"), "Device");
+  assert.equal(shareType("mdi:lightning-bolt"), "Device");
+  // Mappings that were right before stay the same.
+  const kept = {
+    "mdi:television": "TV", "mdi:television-play": "Streamer", "mdi:cast": "Streamer", "mdi:cast-variant": "Streamer",
+    "mdi:cellphone": "Phone", "mdi:cellphone-android": "Phone", "mdi:phone": "Phone", "mdi:deskphone": "Phone",
+    "mdi:tablet-cellphone": "Tablet", "mdi:server": "Storage", "mdi:server-network": "Storage", "mdi:nas": "Storage",
+    "mdi:fan": "Air purifier", "mdi:ceiling-fan": "Air purifier", "mdi:lightbulb": "Light", "mdi:floor-lamp": "Light",
+    "mdi:ceiling-light": "Light", "mdi:light-switch": "Light", "mdi:spotlight-beam": "Light", "mdi:esp32": "Smart device",
+    "mdi:chip": "Smart device", "mdi:printer-3d": "Printer", "mdi:power-plug": "Plug", "mdi:power-socket-eu": "Plug",
+    "mdi:home": "Smart home hub", "mdi:home-automation": "Smart home hub", "mdi:home-assistant": "Home Assistant",
+    "mdi:nintendo-switch": "Console", "mdi:router-wireless": "Network device", "mdi:access-point": "Network device",
+    "mdi:doorbell-video": "Camera", "mdi:robot-vacuum": "Vacuum", "mdi:weather-sunny": "Weather station",
+    "mdi:smoke-detector": "Alarm", "mdi:bell-ring": "Alarm", "mdi:virtual-reality": "VR headset", "mdi:speaker-wireless": "Speaker",
+  };
+  Object.keys(kept).forEach((icon) => assert.equal(shareType(icon), kept[icon], icon));
 });
 
 test("shareTree strips host data and keeps arrangement", () => {
@@ -43,7 +64,7 @@ test("shareTree strips host data and keeps arrangement", () => {
   });
   sentinels(JSON.stringify(t));
   const labels = t.order.map((k) => t.nodes[k].label);
-  assert.ok(labels.includes("Light 1") && labels.includes("TV 1") && labels.includes("Network device"));
+  assert.ok(labels.includes("Light 1") && labels.includes("TV 1") && labels.includes("Network device 1") && labels.includes("Hub 1"));
   assert.ok(!labels.includes("Lamp"));
   // Sorted children follow the original label order: Lamp, Zigbee under the root.
   const ch = t.nodes.n0.children.map((k) => t.nodes[k].icon);
@@ -56,6 +77,76 @@ test("shareTree with names shown keeps labels but swaps addresses", () => {
   assert.ok(labels.includes("Lamp") && labels.includes("Door"));
   assert.ok(!labels.some((l) => l.includes("192.0.2.7")));
   assert.ok(labels.includes("TV 1"));
+});
+
+test("shareTree with names shown swaps addresses written with dashes or glued to letters", () => {
+  const t = shareTree(buildTree([
+    { key: "root", label: "Router", status: "online", icon: "mdi:router" },
+    { key: "a", parent: "root", label: "cam-192-0-2-45", status: "online", icon: "mdi:cctv" },
+    { key: "b", parent: "root", label: "Cam192.0.2.5", status: "online", icon: "mdi:cctv" },
+    { key: "h", parent: "root", label: "hub198.51.100.2", status: "online", kind: "hub", icon: "mdi:zigbee" },
+    { key: "c", parent: "h", label: "Door", status: "online", icon: "mdi:door" },
+    { key: "d", parent: "h", label: "Kitchen 2", status: "online", icon: "mdi:lightbulb" },
+  ], quiet), { hideNames: false });
+  const labels = t.order.map((k) => t.nodes[k].label);
+  assert.ok(labels.includes("Router") && labels.includes("Door") && labels.includes("Kitchen 2"), labels.join());
+  assert.ok(labels.includes("Camera 1") && labels.includes("Camera 2") && labels.includes("Hub 1"), labels.join());
+  assert.ok(!labels.some((l) => /192|198\.51/.test(l)), labels.join());
+  const svg = shareSvg(buildTree([
+    { key: "root", label: "Router", status: "online", icon: "mdi:router" },
+    { key: "a", parent: "root", label: "cam-192-0-2-45", status: "online", icon: "mdi:cctv" },
+    { key: "b", parent: "root", label: "Cam192.0.2.5", status: "online", icon: "mdi:cctv" },
+  ], quiet), { hideNames: false, theme: defaultTheme(), title: "T" });
+  assert.ok(!/192/.test(svg));
+});
+
+test("shareTree never gives a hub and a device the same label", () => {
+  const t = shareTree(buildTree([
+    { key: "root", label: "Router", status: "online", icon: "mdi:router" },
+    { key: "s", parent: "root", label: "Living room", status: "online", kind: "hub", icon: "mdi:speaker" },
+    { key: "a", parent: "s", label: "Left", status: "online", icon: "mdi:speaker" },
+    { key: "b", parent: "s", label: "Right", status: "online", icon: "mdi:speaker" },
+  ], quiet), {});
+  const labels = t.order.map((k) => t.nodes[k].label);
+  assert.equal(new Set(labels).size, labels.length, labels.join());
+  ["Speaker 1", "Speaker 2", "Speaker 3"].forEach((l) => assert.ok(labels.includes(l), l));
+});
+
+test("shareTree names a node whose parent is missing without throwing", () => {
+  const tr = sample();
+  tr.nodes.door.parent = "gone";
+  const t = shareTree(tr, {});
+  assert.ok(t.order.length > 0);
+});
+
+test("shareTree with names shown swaps underscore IPv4 and glued MAC addresses", () => {
+  const t = shareTree(buildTree([
+    { key: "root", label: "Router", status: "online", icon: "mdi:router" },
+    { key: "a", parent: "root", label: "cam_192_0_2_9", status: "online", icon: "mdi:cctv" },
+    { key: "b", parent: "root", label: "cam" + ["00", "00", "5e", "00", "53", "01"].join(":"), status: "online", icon: "mdi:cctv" },
+  ], quiet), { hideNames: false });
+  const labels = t.order.map((k) => t.nodes[k].label);
+  assert.ok(!labels.some((l) => /192|00:53/.test(l)), labels.join());
+});
+
+test("shareTree numbers hubs by type when names are hidden", () => {
+  const t = shareTree(buildTree([
+    { key: "root", label: "Router", status: "online", icon: "mdi:router" },
+    { key: "z1", parent: "root", label: "Zigbee upstairs", status: "online", kind: "hub", icon: "mdi:zigbee" },
+    { key: "z2", parent: "root", label: "Zigbee downstairs", status: "online", kind: "hub", icon: "mdi:zigbee" },
+    { key: "z3", parent: "z1", label: "Zigbee repeater", status: "online", kind: "hub", icon: "mdi:zigbee" },
+    { key: "ap", parent: "root", label: "Spare unit", status: "online", kind: "hub", icon: "mdi:access-point" },
+    { key: "d1", parent: "z1", label: "Bulb", status: "online", icon: "mdi:lightbulb" },
+    { key: "d2", parent: "z2", label: "Desk lamp", status: "online", icon: "mdi:desk-lamp" },
+    { key: "d3", parent: "ap", label: "Speaker", status: "online", icon: "mdi:speaker" },
+  ], quiet), {});
+  const hubs = t.order.filter((k) => t.nodes[k].kind === "hub").map((k) => t.nodes[k].label);
+  assert.equal(new Set(hubs).size, hubs.length, hubs.join());
+  ["Hub 1", "Hub 2", "Hub 3", "Network device 1", "Network device 2"].forEach((l) => assert.ok(hubs.includes(l), l + " in " + hubs.join()));
+  // Device numbers are counted apart from hubs.
+  const all = t.order.map((k) => t.nodes[k].label);
+  ["Light 1", "Light 2", "Speaker 1"].forEach((l) => assert.ok(all.includes(l), l));
+  ["upstairs", "downstairs", "repeater", "Spare", "Bulb", "Desk"].forEach((w) => assert.ok(!all.some((l) => l.includes(w)), w));
 });
 
 test("shareTree of an empty tree", () => {

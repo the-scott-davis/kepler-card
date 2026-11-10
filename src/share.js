@@ -13,19 +13,31 @@ export const REC = { fps: 30, lead: 0.25, tail: 0.8 };
 const LABEL_OUTLINE = "#0b1220";
 const DISC_FILL = "#0f172a";
 
-// Generic names for shared maps, from the node's icon. First match wins.
+// Generic names for shared maps, from the node's icon. First match wins. Each entry lists whole icon words: the
+// icon name loses its "mdi:" prefix and is split on "-" and digits, so "cellphone-android" is "cellphone android"
+// and "esp32" is "esp". A two-word entry such as "television play" matches those words side by side. Whole words
+// keep "headphones" from reading as a phone. A word list starting with "^" only matches the icon's first word.
 const SHARE_TYPES = [
-  [/television-play|cast/, "Streamer"], [/cctv|doorbell|camera|webcam/, "Camera"], [/television|tv/, "TV"], [/soundbar/, "Soundbar"],
-  [/speaker/, "Speaker"], [/gamepad|playstation|xbox|nintendo|controller/, "Console"], [/virtual-reality/, "VR headset"],
-  [/thermostat/, "Thermostat"], [/laptop/, "Laptop"], [/monitor|desktop/, "Computer"], [/tablet|book-open/, "Tablet"],
-  [/cellphone|phone/, "Phone"], [/watch/, "Watch"], [/printer/, "Printer"], [/server|nas/, "Storage"], [/home-assistant/, "Home Assistant"],
-  [/power-socket|plug/, "Plug"], [/lightbulb|lamp|light/, "Light"], [/air-purifier|fan/, "Air purifier"], [/garage/, "Door opener"],
-  [/fridge/, "Sensor"], [/sprinkler/, "Sprinkler"], [/robot/, "Vacuum"], [/^mdi:home/, "Smart home hub"], [/weather/, "Weather station"],
-  [/smoke|alarm|bell-ring/, "Alarm"], [/chip|esp/, "Smart device"], [/access-point|router|switch/, "Network device"],
-];
+  ["television play|cast|chromecast", "Streamer"], ["cctv|doorbell|camera|webcam", "Camera"], ["television|tv", "TV"],
+  ["soundbar", "Soundbar"], ["speaker", "Speaker"], ["gamepad|playstation|xbox|nintendo|controller", "Console"],
+  ["virtual reality", "VR headset"], ["thermostat", "Thermostat"], ["laptop", "Laptop"], ["monitor|desktop", "Computer"],
+  ["tablet|book open", "Tablet"], ["cellphone|phone|deskphone|iphone", "Phone"], ["watch", "Watch"], ["printer", "Printer"],
+  ["server|nas", "Storage"], ["home assistant", "Home Assistant"], ["power socket|plug", "Plug"],
+  ["lightbulb|lamp|lamps|light|lights|spotlight", "Light"], ["air purifier|fan", "Air purifier"], ["garage", "Door opener"],
+  ["fridge", "Sensor"], ["sprinkler", "Sprinkler"], ["robot", "Vacuum"], ["^home", "Smart home hub"],
+  ["weather", "Weather station"], ["smoke|alarm|bell ring", "Alarm"], ["chip|microchip|esp", "Smart device"],
+  ["access point|router|switch", "Network device"],
+].map(([words, type]) => {
+  const start = words[0] === "^";
+  return [new RegExp((start ? "^" : "(?:^| )") + "(?:" + words.replace(/^\^/, "") + ")(?= |$)"), type];
+});
+
+function iconWords(icon) {
+  return String(icon || "").toLowerCase().replace(/^mdi:/, "").split(/[^a-z]+/).filter(Boolean).join(" ");
+}
 
 export function shareType(icon) {
-  const s = String(icon || "");
+  const s = iconWords(icon);
   for (let i = 0; i < SHARE_TYPES.length; i++) if (SHARE_TYPES[i][0].test(s)) return SHARE_TYPES[i][1];
   return "Device";
 }
@@ -33,9 +45,13 @@ export function shareType(icon) {
 // Anything that looks like an IPv4 or IPv6 address or a MAC address, whole or in part. A match must sit between
 // characters that are not letters or digits ("_" counts as a letter here). Forms: IPv4, MAC with separators,
 // MAC with none, the dotted Cisco form, six hex characters after a separator with at least one digit, IPv6.
+// An IPv4 may also use "-" or "_" between its parts and sit right after letters (cam-192-0-2-45, Cam192.0.2.5);
+// there only digits must not touch it. A full six-part MAC is caught wherever it sits, even glued to letters.
 // A false hit only costs a generic label.
 const ADDRESS_RE = new RegExp(
-  "(?:^|[^0-9a-z])(?:" +
+  "(?:^|\\D)\\d{1,3}(?:[._-]\\d{1,3}){3}(?!\\d)" +
+  "|[0-9a-f]{2}(?:[:_-][0-9a-f]{2}){5}" +
+  "|(?:^|[^0-9a-z])(?:" +
   "\\d{1,3}(?:\\.\\d{1,3}){3}" +
   "|[0-9a-f]{2}(?:[:-][0-9a-f]{2})+" +
   "|[0-9a-f]{12}" +
@@ -63,7 +79,8 @@ export function shareTree(tree, opts) {
   const hide = !opts || opts.hideNames !== false;
   if (!tree || tree.root == null || !tree.nodes[tree.root]) return emptyTree();
   const src = tree.nodes;
-  const sk = (k) => String(src[k].sort != null ? src[k].sort : src[k].label);
+  // A parent missing from the tree sorts first rather than throwing.
+  const sk = (k) => (src[k] ? String(src[k].sort != null ? src[k].sort : src[k].label) : "");
   const cmp = (a, b) => {
     const x = sk(a), y = sk(b);
     if (x !== y) return x < y ? -1 : 1;
@@ -78,30 +95,35 @@ export function shareTree(tree, opts) {
   others.forEach((k, i) => { rank[k] = String(i).padStart(5, "0"); });
   rank[tree.root] = "-----";
 
-  // Generic names: devices numbered by type, ordered by parent, then own position.
+  // Generic names: devices and hubs numbered by type, ordered by parent, then own position. Devices are numbered
+  // first, as before; hubs carry on from the device count of their type (three Speakers, then a hub "Speaker 4"),
+  // so device numbers stay as they were and no hub shares a label with a device. The root counts as a hub.
   const generic = Object.create(null);
-  const seen = Object.create(null);
-  const devices = others.filter((k) => src[k].kind !== "hub").sort((a, b) => {
+  const byParent = (a, b) => {
     const pa = src[a].parent, pb = src[b].parent;
     if (pa !== pb) return cmp(pa, pb);
     return cmp(a, b);
-  });
-  devices.forEach((k) => {
-    const type = shareType(src[k].icon);
-    seen[type] = (seen[type] || 0) + 1;
-    generic[k] = type + " " + seen[type];
-  });
-  const hubName = (k) => {
+  };
+  const seen = Object.create(null);
+  const number = (list, typeOf) => {
+    list.forEach((k) => {
+      const type = typeOf(k);
+      seen[type] = (seen[type] || 0) + 1;
+      generic[k] = type + " " + seen[type];
+    });
+  };
+  const isHubKey = (k) => k === tree.root || src[k].kind === "hub";
+  number(others.filter((k) => !isHubKey(k)).sort(byParent), (k) => shareType(src[k].icon));
+  number([tree.root].concat(others.filter(isHubKey).sort(byParent)), (k) => {
     const t = shareType(src[k].icon);
     return t === "Device" ? "Hub" : t;
-  };
+  });
 
   const out = emptyTree();
   ranked.forEach((k) => {
     const n = src[k];
     const isRoot = k === tree.root;
-    const isHub = n.kind === "hub";
-    const fallback = isHub ? hubName(k) : generic[k];
+    const fallback = generic[k];
     const label = hide ? fallback : safeLabel(n.label, fallback);
     const parent = isRoot ? null : (keyOf[n.parent] || "n0");
     out.nodes[keyOf[k]] = {
