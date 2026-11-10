@@ -191,6 +191,26 @@ export function shareSvg(tree, opts) {
     `<circle class="ring" cx="${D.C.x}" cy="${D.C.y}" r="370"/>${D.links}${D.gfx}${D.labels}</svg></svg>`;
 }
 
+const PREPARED = new WeakMap();
+
+/** What paintFrame reuses between frames: gradients (per ctx), Path2D objects and the root lookup. Built lazily,
+ * once per scene + theme + ctx; a different theme or canvas gets a fresh one, so nothing leaks between recordings. */
+function prepare(ctx, scene, theme) {
+  const tk = JSON.stringify(theme), c = PREPARED.get(scene);
+  if (c && c.tk === tk && c.ctx === ctx) return c;
+  const roots = new Set();
+  scene.nodes.forEach((n) => { if (n.root) roots.add(n.k); });
+  const p = { tk, ctx, roots, bg: null, beam: null, halos: new Map(), links: new Map(), icons: new Map() };
+  PREPARED.set(scene, p);
+  return p;
+}
+
+function radial(ctx, x0, y0, r0, x1, y1, r1, stops) {
+  const gr = ctx.createRadialGradient(x0, y0, r0, x1, y1, r1);
+  stops.forEach((s) => { try { gr.addColorStop(s[0], s[1]); } catch (e) { /* bad colour */ } });
+  return gr;
+}
+
 /** Paints one frame of the reveal on a 2D canvas context, scaled to the canvas width. Everything is computed
  * here, with no CSS animation, so recording doesn't depend on the page. */
 export function paintFrame(ctx, scene, t, o) {
@@ -202,11 +222,11 @@ export function paintFrame(ctx, scene, t, o) {
   const g = revealGlobal(t);
   ctx.setTransform(k, 0, 0, k, 0, 0);
   ctx.globalAlpha = 1;
+  const P = prepare(ctx, scene, theme);
   const bg = parseBackground(theme.background);
   if (bg.kind === "radial") {
-    const gr = ctx.createRadialGradient(W / 2, H * 0.48, 0, W / 2, H * 0.48, W * 0.8);
-    bg.stops.forEach((s) => { try { gr.addColorStop(s.offset, s.color); } catch (e) { /* bad colour */ } });
-    ctx.fillStyle = gr;
+    if (!P.bg) P.bg = radial(ctx, W / 2, H * 0.48, 0, W / 2, H * 0.48, W * 0.8, bg.stops.map((s) => [s.offset, s.color]));
+    ctx.fillStyle = P.bg;
   } else {
     ctx.fillStyle = bg.color;
   }
@@ -218,7 +238,9 @@ export function paintFrame(ctx, scene, t, o) {
     ctx.translate(x - size / 2, y - size / 2);
     ctx.scale(size / 24, size / 24);
     ctx.fillStyle = color;
-    ctx.fill(new Path2D(d));
+    let p2 = P.icons.get(d);
+    if (!p2) P.icons.set(d, (p2 = new Path2D(d)));
+    ctx.fill(p2);
     ctx.restore();
   };
 
@@ -250,10 +272,9 @@ export function paintFrame(ctx, scene, t, o) {
     const R = 420;
     for (let i = 0; i < 18; i++) {
       const a1 = ((deg - (i * 70) / 18 - 90) * Math.PI) / 180, a0 = a1 - ((70 / 18) * Math.PI) / 180;
-      const gr = ctx.createRadialGradient(C.x, C.y, 0, C.x, C.y, R);
-      try { gr.addColorStop(0, theme.highlight); gr.addColorStop(1, "rgba(0,0,0,0)"); } catch (e) { /* bad colour */ }
+      if (!P.beam) P.beam = radial(ctx, C.x, C.y, 0, C.x, C.y, R, [[0, theme.highlight], [1, "rgba(0,0,0,0)"]]);
       ctx.globalAlpha = g.radar * 0.3 * (1 - i / 18);
-      ctx.fillStyle = gr;
+      ctx.fillStyle = P.beam;
       ctx.beginPath(); ctx.moveTo(C.x, C.y); ctx.arc(C.x, C.y, R, a0, a1); ctx.closePath(); ctx.fill();
     }
     const ab = ((deg - 90) * Math.PI) / 180;
@@ -278,7 +299,11 @@ export function paintFrame(ctx, scene, t, o) {
     ctx.strokeStyle = l.color;
     ctx.lineWidth = strong ? 2.6 : 1.4;
     ctx.setLineDash([]);
-    ctx.stroke(new Path2D(partialPath(l.d, s.draw)));
+    if (s.draw >= 1) {
+      let lp = P.links.get(l);
+      if (!lp) P.links.set(l, (lp = new Path2D(partialPath(l.d, 1))));
+      ctx.stroke(lp);
+    } else ctx.stroke(new Path2D(partialPath(l.d, s.draw)));
   });
   scene.nodes.forEach((n) => {
     const s = state[n.k];
@@ -288,8 +313,8 @@ export function paintFrame(ctx, scene, t, o) {
     ctx.translate(n.x, n.y); ctx.scale(s.s, s.s); ctx.translate(-n.x, -n.y);
     if (n.halo) {
       const hr = n.r + (n.hub ? 16 : 12);
-      const gr = ctx.createRadialGradient(n.x, n.y, n.r * 0.6, n.x, n.y, hr);
-      try { gr.addColorStop(0, n.color); gr.addColorStop(1, "rgba(0,0,0,0)"); } catch (e) { /* bad colour */ }
+      let gr = P.halos.get(n);
+      if (!gr) P.halos.set(n, (gr = radial(ctx, n.x, n.y, n.r * 0.6, n.x, n.y, hr, [[0, n.color], [1, "rgba(0,0,0,0)"]])));
       ctx.globalAlpha = s.o * 0.22;
       ctx.fillStyle = gr;
       ctx.beginPath(); ctx.arc(n.x, n.y, hr, 0, Math.PI * 2); ctx.fill();
@@ -316,7 +341,7 @@ export function paintFrame(ctx, scene, t, o) {
   ctx.textBaseline = "alphabetic";
   ctx.lineJoin = "round";
   scene.hubLabels.forEach((l) => {
-    const isRoot = scene.nodes.some((n) => n.root && n.k === l.k);
+    const isRoot = P.roots.has(l.k);
     const a = isRoot ? 1 : g.labels;
     if (a <= 0) return;
     ctx.globalAlpha = a;
