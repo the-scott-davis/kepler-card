@@ -1,4 +1,5 @@
 import "./helpers/dom.js";
+import { readFileSync, writeFileSync } from "node:fs";
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import { installShareStubs } from "./helpers/share-stubs.js";
@@ -8,6 +9,7 @@ import { filterTree } from "../src/filters.js";
 import { defaultTheme } from "../src/theme.js";
 import { drawMap } from "../src/draw.js";
 import { REVEAL } from "../src/reveal.js";
+import { setIconPath } from "../src/icons.js";
 import {
   SHARE, REC, shareType, shareTree, shareSvg, paintFrame, framePump, videoType, sharePng, shareVideo, deliver,
 } from "../src/share.js";
@@ -377,6 +379,153 @@ test("shareTree keeps the emptied-by-filter mark", () => {
 test("shareSvg output has no focus or aria attributes", () => {
   const svg = shareSvg(sample(), {});
   assert.ok(!/tabindex|role="button"|aria-label/.test(svg));
+});
+
+// --- paintFrame equivalence and per-frame work ---------------------------------------------------------------
+// Golden values live in test/fixtures/paint-frame-baseline.json, generated from the code before the per-frame
+// caching refactor. Regenerate only deliberately: KEPLER_WRITE_BASELINE=1 npm test.
+const BASELINE = new URL("./fixtures/paint-frame-baseline.json", import.meta.url);
+const bigSample = () => buildTree([
+  { key: "root", label: "Router", status: "online", icon: "mdi:router" },
+  { key: "l1", parent: "root", label: "Lamp", status: "online", icon: "mdi:lightbulb" },
+  { key: "l2", parent: "root", label: "Desk", status: "stale", icon: "mdi:desk-lamp" },
+  { key: "hubA", parent: "root", label: "Zigbee", status: "recent", kind: "hub", icon: "mdi:zigbee" },
+  { key: "a1", parent: "hubA", label: "Door", status: "stale", icon: "mdi:door" },
+  { key: "a2", parent: "hubA", label: "Cam", status: "new", icon: "mdi:cctv" },
+  { key: "a3", parent: "hubA", label: "Plug", status: "online", icon: "mdi:power-plug" },
+  { key: "hubB", parent: "root", label: "Wifi", status: "online", kind: "hub", icon: "mdi:access-point" },
+  { key: "b1", parent: "hubB", label: "TV", status: "online", icon: "mdi:television" },
+  { key: "b2", parent: "hubB", label: "Phone", status: "recent", icon: "mdi:cellphone" },
+  { key: "b3", parent: "hubB", label: "Speaker", status: "online", icon: "mdi:speaker" },
+  { key: "b4", parent: "hubB", label: "Fan", status: "new", icon: "mdi:fan" },
+], quiet);
+const THEMES = {
+  default: () => defaultTheme(),
+  themed: () => theme({ text: "#abc123", background: "radial-gradient(circle, #111111 0%, #222222 100%)", highlight: "#fedcba", online: "#010203", ring: "rgba(1,2,3,.5)", font: "Fancy, serif" }),
+  solid: () => theme({ background: "#123456", highlight: "#ff00aa" }),
+};
+const TIMES = { t0: 0, early: 0.6, mid: 1.3, afterBeam: 2.8, labels: 3.2, end: REVEAL.end };
+// paintFrame draws an icon only once its path is known, so give every icon in the sample one.
+["router", "lightbulb", "desk-lamp", "zigbee", "door", "cctv", "power-plug", "access-point", "television", "cellphone", "speaker", "fan"]
+  .forEach((n, i) => setIconPath("mdi:" + n, `M${i},${i}h${i + 2}v${i + 3}z`));
+const sceneOf = (th) => drawMap(shareTree(bigSample(), {}), { theme: th }).scene;
+// What one paintFrame call drew, with gradients compared by value (stops), never by identity.
+function snap(calls, from) {
+  const val = (f) => (f && typeof f === "object" && Array.isArray(f.stops) ? { stops: f.stops } : f);
+  return JSON.parse(JSON.stringify({
+    fills: calls.fills.slice(from.fills).map(val),
+    fillAlphas: calls.fillAlphas.slice(from.fills),
+    fillPaths: calls.fillPaths.slice(from.fills),
+    strokes: calls.strokes.slice(from.strokes),
+    strokeAlphas: calls.strokeAlphas.slice(from.strokes),
+    strokePaths: calls.strokePaths.slice(from.strokes),
+    texts: calls.texts.slice(from.texts),
+  }));
+}
+const mark = (c) => ({ fills: c.fills.length, strokes: c.strokes.length, texts: c.texts.length });
+function record(name) {
+  const th = THEMES[name]();
+  const scene = sceneOf(th);
+  const stubs = installShareStubs();
+  try {
+    const out = {};
+    Object.keys(TIMES).forEach((tn) => {
+      const m = mark(stubs.calls);
+      paintFrame(ctxFor(), scene, TIMES[tn], { theme: th, title: "Baseline" });
+      out[tn] = snap(stubs.calls, m);
+    });
+    return out;
+  } finally { stubs.restore(); }
+}
+
+if (process.env.KEPLER_WRITE_BASELINE) {
+  const all = {};
+  Object.keys(THEMES).forEach((n) => { all[n] = record(n); });
+  writeFileSync(BASELINE, JSON.stringify(all, null, 1) + "\n");
+}
+
+test("paintFrame output matches the recorded baseline for several themes and times", () => {
+  const golden = JSON.parse(readFileSync(BASELINE, "utf8"));
+  Object.keys(THEMES).forEach((n) => {
+    const got = record(n);
+    Object.keys(TIMES).forEach((tn) => assert.deepEqual(got[tn], golden[n][tn], n + " " + tn));
+  });
+  // The baseline is not vacuous: gradients, icons, hub labels and beam alphas are in it.
+  const e = golden.default.mid;
+  assert.ok(e.fills.some((f) => f && f.stops), "gradient fills");
+  assert.ok(e.fillPaths.some((d) => typeof d === "string"), "icon paths");
+  assert.ok(e.texts.length > 0);
+  assert.ok(new Set(e.fillAlphas).size > 5, "distinct alphas");
+  assert.ok(golden.default.end.texts.includes("Baseline"));
+});
+
+test("paintFrame draws the same twice in a row on one scene", () => {
+  const th = THEMES.default();
+  const scene = sceneOf(th);
+  const stubs = installShareStubs();
+  try {
+    const ctx = ctxFor();
+    const m1 = mark(stubs.calls);
+    paintFrame(ctx, scene, TIMES.mid, { theme: th, title: "X" });
+    const a = snap(stubs.calls, m1);
+    const m2 = mark(stubs.calls);
+    paintFrame(ctx, scene, TIMES.mid, { theme: th, title: "X" });
+    assert.deepEqual(snap(stubs.calls, m2), a);
+  } finally { stubs.restore(); }
+});
+
+test("paintFrame after the first call builds fewer gradients and paths", () => {
+  const th = THEMES.default();
+  const scene = sceneOf(th);
+  const stubs = installShareStubs();
+  try {
+    const ctx = ctxFor();
+    const c = stubs.calls;
+    paintFrame(ctx, scene, TIMES.mid, { theme: th, title: "X" });
+    const firstGrad = c.radials, firstPath = c.path2d;
+    // Measured on the code before the caching refactor, for this scene at TIMES.mid: every call built these.
+    const BASE_GRADIENTS = 23, BASE_PATH2D = 13;
+    assert.ok(firstGrad <= BASE_GRADIENTS, "first call radial gradients " + firstGrad);
+    assert.ok(firstPath <= BASE_PATH2D, "first call Path2D " + firstPath);
+    const g0 = c.radials, p0 = c.path2d;
+    paintFrame(ctx, scene, TIMES.mid, { theme: th, title: "X" });
+    const secondGrad = c.radials - g0, secondPath = c.path2d - p0;
+    assert.ok(secondGrad <= 2, "second call radial gradients " + secondGrad);
+    assert.ok(secondPath < BASE_PATH2D, "second call Path2D " + secondPath + " vs base " + BASE_PATH2D);
+  } finally { stubs.restore(); }
+});
+
+test("paintFrame does not leak cached colours across themes or scenes", () => {
+  const stubs = installShareStubs();
+  try {
+    const ctx = ctxFor();
+    const c = stubs.calls;
+    const a = THEMES.default(), b = THEMES.themed();
+    const scene = sceneOf(a);
+    paintFrame(ctx, scene, TIMES.mid, { theme: a, title: "Baseline" });
+    const m = mark(c);
+    paintFrame(ctx, scene, TIMES.mid, { theme: b, title: "Baseline" });
+    const got = snap(c, m);
+    const fresh = record("themed").mid;
+    // Same scene geometry, new theme: theme-derived fills (background, beam, header, text) follow the new theme.
+    const stopsOf = (s) => s.fills.filter((f) => f && f.stops).map((f) => f.stops.map((x) => x[1]));
+    assert.deepEqual(stopsOf(got)[0], ["#111111", "#222222"]);
+    assert.ok(stopsOf(got).some((s) => s[0] === "#fedcba"), "beam uses the new highlight");
+    assert.ok(!JSON.stringify(got.fills).includes("#13213a"));
+    assert.ok(got.fills.includes("#abc123") && got.fills.includes("#fedcba"));
+    assert.ok(!got.fills.includes("#e2e8f0"));
+    assert.deepEqual(got.fills.slice(0, 1), fresh.fills.slice(0, 1));
+    assert.deepEqual(got.texts, fresh.texts);
+    // And back again.
+    const m2 = mark(c);
+    paintFrame(ctx, scene, TIMES.mid, { theme: a, title: "Baseline" });
+    assert.deepEqual(stopsOf(snap(c, m2))[0], ["#13213a", "#0b1220", "#070b14"]);
+    // A fresh scene object paints exactly what a first-ever paint of it does.
+    const scene2 = sceneOf(a);
+    const m3 = mark(c);
+    paintFrame(ctx, scene2, TIMES.end, { theme: a, title: "Baseline" });
+    assert.deepEqual(snap(c, m3), record("default").end);
+  } finally { stubs.restore(); }
 });
 
 // Empty-map share behaviour on the real card element.
