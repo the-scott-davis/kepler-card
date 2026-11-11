@@ -10,6 +10,7 @@ export const CARD_ENTRY = {
 
 // Define the element in whatever registry win.customElements is right now. The registry is read on every
 // call because the host app can swap in a scoped registry after this file first runs.
+// Returns true when the registry holds cls for the name afterwards, false on collision or define error.
 export function defineElement(cls, win) {
   const w = win || window;
   try {
@@ -20,8 +21,10 @@ export function defineElement(cls, win) {
     } else if (held !== cls) {
       console.warn("Kepler: " + ELEMENT_NAME + " is already defined by another element class; keeping the existing one.");
     }
+    return reg.get(ELEMENT_NAME) === cls;
   } catch (e) {
     console.warn("Kepler: " + ELEMENT_NAME + " define failed", e);
+    return false;
   }
 }
 
@@ -35,16 +38,15 @@ export function pushCardEntry(win) {
 
 export function register(cls, win) {
   const w = win || window;
-  defineElement(cls, w);
+  if (defineElement(cls, w)) pushCardEntry(w);
   const reg = w.customElements;
   if (reg && reg.whenDefined) {
     reg.whenDefined("home-assistant")
       .then(function () {
         // Same registry and name already held: the first call already defined or warned, so don't warn again.
         if (w.customElements === reg && reg.get(ELEMENT_NAME)) return;
-        defineElement(cls, w);
+        if (defineElement(cls, w)) pushCardEntry(w);
       })
       .catch(function (e) { console.warn("Kepler: " + ELEMENT_NAME + " define failed", e); });
   }
-  pushCardEntry(w);
 }
