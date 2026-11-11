@@ -41,6 +41,6 @@ test("a held foreign class is kept with a warning", () => {
   win.console.warn = (...a) => warns.push(a.join(" "));
   load(win);
   assert.equal(win.customElements.get("kepler-card"), Other);
-  assert.equal(win.customCards.length, 1);
+  assert.equal((win.customCards || []).filter((c) => c.type === "kepler-card").length, 0);
   assert.ok(warns.some((w) => /kepler-card/.test(w)));
 });

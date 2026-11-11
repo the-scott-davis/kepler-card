@@ -100,4 +100,42 @@ test("register warns once on a name collision, not again after whenDefined", asy
   } finally { c.restore(); }
   assert.equal(c.calls.length, 1);
   assert.equal(reg.get(ELEMENT_NAME), A);
+  assert.equal((win.customCards || []).filter((e) => e.type === "kepler-card").length, 0);
+  assert.equal(win.customCards, undefined);
+});
+
+test("defineElement returns true when free or same class held, false for a different class", () => {
+  const win = { customElements: fakeReg() };
+  class A {}
+  class B {}
+  const c = capture();
+  try {
+    assert.equal(defineElement(A, win), true);
+    assert.equal(defineElement(A, win), true);
+    assert.equal(defineElement(B, win), false);
+  } finally { c.restore(); }
+  const bad = fakeReg();
+  bad.define = () => { throw new Error("boom"); };
+  const c2 = capture();
+  try { assert.equal(defineElement(A, { customElements: bad }), false); } finally { c2.restore(); }
+});
+
+test("collision in the original registry, then a free swapped registry gets Kepler and one entry", async () => {
+  const orig = fakeReg();
+  const swapped = fakeReg();
+  const win = { customElements: orig };
+  class A {}
+  class B {}
+  orig.define(ELEMENT_NAME, B);
+  const c = capture();
+  try {
+    register(A, win);
+    assert.equal(win.customCards, undefined);
+    win.customElements = swapped;
+    orig.resolve();
+    await new Promise((r) => setTimeout(r, 0));
+  } finally { c.restore(); }
+  assert.equal(c.calls.length, 1);
+  assert.equal(swapped.get(ELEMENT_NAME), A);
+  assert.equal(win.customCards.filter((e) => e.type === "kepler-card").length, 1);
 });

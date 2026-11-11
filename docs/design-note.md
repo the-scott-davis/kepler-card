@@ -103,7 +103,7 @@ router                              status: online   icon: mdi:router-wireless  
 - Element name collisions are handled by a guard that checks `customElements.get` before calling `define`, which is the check NetOrbit's `noDefine` uses (lines 2211-2214).
 - Proposed: run the guard again after `customElements.whenDefined("home-assistant")`, because NetOrbit does this so the card also lands in the registry Home Assistant swaps in after older versions first run the file (lines 2207-2218), and this applies to Home Assistant only.
 - Proposed: when another class already holds `kepler-card`, Kepler keeps the existing element and logs a console warning naming the collision, rather than skipping silently as NetOrbit does (line 2213).
-- Proposed rule for the Lovelace card entry is to skip the `window.customCards` push when an entry of the same type exists, as NetOrbit does (line 2220).
+- Rule for the Lovelace card entry: on an element-name collision (another class already holds `kepler-card`) Kepler keeps the existing element, warns, and pushes no `window.customCards` entry. The entry is pushed only when Kepler's own class holds the name. The existing skip when an entry of the same type is already present stays, as NetOrbit does (line 2220).
 
 ## Filters
 
