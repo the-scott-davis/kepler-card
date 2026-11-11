@@ -13,10 +13,12 @@
     "pretest": "npm run build",
     "test": "node --test \"test/*.test.js\"",
     "preview": "npm run build && node scripts/preview.js",
-    "test:e2e": "npm run build && node --test \"test/e2e/*.test.js\""
+    "test:e2e": "npm run build && node --test \"test/e2e/*.test.js\"",
+    "test:browser": "playwright test"
   },
   "devDependencies": {
     "@mdi/js": "^7.4.47",
+    "@playwright/test": "^1.65.0",
     "acorn": "^8.14.0",
     "esbuild": "^0.28.2",
     "jsdom": "^31.0.0"
