@@ -5,7 +5,7 @@ export default defineConfig({
   testMatch: '*.spec.js',
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? 'github' : 'list',
+  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: { baseURL: 'http://127.0.0.1:4173' },
   webServer: {
     command: 'PORT=4173 npm run preview',
