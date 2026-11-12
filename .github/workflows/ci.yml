@@ -16,9 +16,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: package.json
-      # kepler-card.js is a build output and is not committed, so build it for the HACS check to find.
+      # HACS looks for kepler-card.js in dist/, which is committed. Rebuild it and fail if the committed copy is stale.
       - run: npm ci
       - run: npm run build
+      - run: git diff --exit-code -- dist/kepler-card.js
       - uses: hacs/action@main
         with:
           category: plugin
