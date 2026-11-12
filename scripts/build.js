@@ -1,4 +1,4 @@
-import { existsSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
@@ -6,6 +6,8 @@ import { build } from "esbuild";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const entry = join(root, "src", "index.js");
 const outfile = join(root, "kepler-card.js");
+// HACS looks in dist/ when the repo has no releases, so the same bundle is also written there and committed.
+const distFile = join(root, "dist", "kepler-card.js");
 
 if (existsSync(entry)) {
   await build({
@@ -24,3 +26,6 @@ if (existsSync(entry)) {
   writeFileSync(outfile, "/* Kepler: src/index.js is not present yet, so this build is empty. */\n");
   console.log("Wrote placeholder kepler-card.js (no src/index.js)");
 }
+
+mkdirSync(dirname(distFile), { recursive: true });
+copyFileSync(outfile, distFile);
