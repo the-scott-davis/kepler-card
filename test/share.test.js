@@ -597,6 +597,53 @@ test("filters keep the root, so a non-matching selection leaves the button enabl
   } finally { s.restore(); }
 });
 
+const cssRules = (css) => [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
+function assertPanelCssReadable(css) {
+  assert.ok(/\.sharepop\{[^}]*;color:var\(--kepler-tooltip-text-color/.test(css), "panel colour uses the tooltip text variable");
+  assert.ok(!css.includes("--kepler-text-color"), "panel CSS never references the map text colour");
+  const rules = cssRules(css).filter((r) => /(\.on|\.go)(,|$)/.test(r.sel));
+  assert.ok(rules.length >= 2, "active-state rules found");
+  for (const r of rules) {
+    assert.ok(!/(^|;)\s*color:[^;]*--kepler-highlight/.test(r.body), `${r.sel} must not set color to the highlight`);
+  }
+}
+
+test("share panel text uses the tooltip colour and never the highlight", () => {
+  const s = installShareStubs();
+  try {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    openSharePanel(host, { svg: () => "<svg/>", png: async () => new Blob(["p"]), video: async () => new Blob(["v"]), canVideo: true, onClose: () => {} });
+    const style = host.querySelector(".sharepop style");
+    assert.ok(style);
+    assertPanelCssReadable(style.textContent);
+    host.remove();
+  } finally { s.restore(); }
+});
+
+test("card share panel keeps tooltip variables after the theme variables change", () => {
+  const s = installShareStubs();
+  try {
+    const el = mountCard(NODES());
+    el.style.setProperty("--kepler-tooltip-background", "#ffffff");
+    el.style.setProperty("--kepler-tooltip-text-color", "#111111");
+    shareBtn(el).click();
+    const css = () => sharePop(el).querySelector("style").textContent;
+    assertPanelCssReadable(css());
+    assert.ok(css().includes("var(--kepler-tooltip-background"));
+    el.style.setProperty("--kepler-tooltip-background", "#000000");
+    el.style.setProperty("--kepler-tooltip-text-color", "#eeeeee");
+    el.style.setProperty("--kepler-text-color", "#000000");
+    assertPanelCssReadable(css());
+    shareBtn(el).click();
+    if (!sharePop(el)) shareBtn(el).click();
+    assert.ok(sharePop(el));
+    assertPanelCssReadable(css());
+    assert.ok(css().includes("var(--kepler-tooltip-background"));
+    el.remove();
+  } finally { s.restore(); }
+});
+
 test("show_share false keeps the button hidden, with or without data", () => {
   const s = installShareStubs();
   try {
