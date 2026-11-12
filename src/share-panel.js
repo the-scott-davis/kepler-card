@@ -3,16 +3,16 @@ import { cssVar } from "./theme.js";
 import { deliver } from "./share.js";
 
 function panelCss() {
-  const text = cssVar("text"), hi = cssVar("highlight"), bg = cssVar("tooltipBackground");
+  const text = cssVar("tooltipText"), hi = cssVar("highlight"), bg = cssVar("tooltipBackground");
   return `.sharepop{position:absolute;top:56px;right:12px;z-index:5;width:min(340px,calc(100% - 24px));box-sizing:border-box;padding:14px;border-radius:12px;` +
     `background:${bg};color:${text};border:1px solid rgba(148,163,184,.25);font:13px/1.4 ${cssVar("font")};box-shadow:0 8px 28px rgba(0,0,0,.45)}` +
     `.sharepop .shead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:15px}` +
     `.sharepop button{font:inherit;color:inherit;cursor:pointer;border:1px solid rgba(148,163,184,.3);background:transparent;border-radius:8px;padding:6px 12px}` +
     `.sharepop .x{border:0;font-size:20px;padding:0 6px}.sharepop .seg{display:flex;gap:6px;margin-bottom:10px}` +
-    `.sharepop .seg button.on,.sharepop .go{border-color:${hi};color:${hi}}.sharepop .thumb{width:100%;display:block;border-radius:8px;margin-bottom:10px}` +
+    `.sharepop .seg button.on,.sharepop .go{border:2px solid ${hi};padding:5px 11px;color:inherit;font-weight:700}.sharepop .thumb{width:100%;display:block;border-radius:8px;margin-bottom:10px}` +
     `.sharepop .trow{display:flex;justify-content:space-between;align-items:center;gap:10px}.sharepop .muted{opacity:.7;font-size:12px}` +
     `.sharepop .tg{width:42px;height:24px;padding:2px;border-radius:12px;text-align:left}.sharepop .tg i{display:block;width:18px;height:18px;border-radius:50%;background:currentColor;opacity:.6}` +
-    `.sharepop .tg.on{border-color:${hi}}.sharepop .tg.on i{margin-left:18px;background:${hi};opacity:1}` +
+    `.sharepop .tg.on{border:2px solid ${hi};padding:1px}.sharepop .tg.on i{margin-left:18px;background:${hi};opacity:1}` +
     `.sharepop .btns{display:flex;gap:8px;margin-top:12px}.sharepop [hidden]{display:none}.sharepop .status{margin-top:8px;min-height:1.4em;font-size:12px}`;
 }
 
