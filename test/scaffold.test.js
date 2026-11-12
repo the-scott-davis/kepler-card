@@ -33,3 +33,14 @@ test("dist/kepler-card.js is committed (not ignored) and hacs.json names kepler-
   const hacs = JSON.parse(readFileSync(join(root, "hacs.json"), "utf8"));
   assert.equal(hacs.filename, "kepler-card.js");
 });
+
+test("README images are relative docs/ paths that exist", async () => {
+  const { readFileSync, existsSync } = await import("node:fs");
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+  const paths = [...readme.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map((m) => m[1]);
+  assert.ok(paths.length >= 1, "README has at least one image");
+  for (const p of paths) {
+    assert.match(p, /^docs\/[\w.-]+\.png$/);
+    assert.ok(existsSync(new URL("../" + p, import.meta.url)), p + " exists");
+  }
+});
