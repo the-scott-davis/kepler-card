@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: package.json
-      # HACS looks for kepler-card.js in dist/, which is committed. Rebuild it and fail if the committed copy is stale.
+      # HACS looks for kepler-card.js in dist/ until a release exists, so dist/ is committed. Rebuild it and fail if the committed copy is stale.
       - run: npm ci
       - run: npm run build
       - run: |
@@ -38,6 +38,7 @@ jobs:
           node-version-file: package.json
           cache: npm
       - run: npm ci
+      - run: npm run package
       - run: npm test # pretest builds the card
 
   playwright:

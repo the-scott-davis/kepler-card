@@ -6,7 +6,8 @@ import { build } from "esbuild";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const entry = join(root, "src", "index.js");
 const outfile = join(root, "kepler-card.js");
-// HACS looks in dist/ when the repo has no releases, so the same bundle is also written there and committed.
+// HACS looks in dist/ only until a release exists; installs then use the release asset kepler-card.js.
+// The same bundle is also written to dist/ and committed for that period.
 const distFile = join(root, "dist", "kepler-card.js");
 
 if (existsSync(entry)) {
