@@ -13,7 +13,7 @@ The images in `docs/` are rendered from the preview page: run `npm run render` (
 
 HACS installs Kepler from the release zip, not from the repository files: `hacs.json` sets `zip_release` and `filename: kepler-card.zip`, and `.github/workflows/release.yml` builds that zip when a GitHub release is published. It checks the zip holds `kepler-card.js` and that the tag matches the `version` in `package.json`, then attaches the zip to the release.
 
-First release: bump nothing and cut tag `v0.1.0` (it must equal `package.json` version `0.1.0`, with a leading `v`), then publish a GitHub release for it. Until that release exists there is no zip for HACS to install. For later releases, bump `version` in `package.json` first and tag `v<version>`.
+First release: `package.json` is already at `0.1.0`, so cut tag `v0.1.0` and publish a GitHub release for it. The tag must be `v` plus the `package.json` version, or the workflow fails before uploading. Until that release exists there is no zip for HACS to install. For later releases, bump `version` in `package.json` first, then tag `v<version>`.
 
 ## Keyboard
 
