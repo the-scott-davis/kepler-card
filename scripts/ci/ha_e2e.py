@@ -2,23 +2,23 @@
 """End-to-end check of kepler-card inside a real Home Assistant.
 
 CI runs this from .github/workflows/e2e.yml against the official Home Assistant container. It onboards a fresh
-instance with a throwaway user, registers the built kepler-card.js as a Lovelace module resource, publishes a
+instance with a throwaway user, registers the packaged kepler-card.js as a Lovelace module resource, publishes a
 made-up device tree as a sensor's `nodes` attribute, puts a `custom:kepler-card` on a dashboard, opens it in
 Chromium and WebKit and checks that the card is in window.customCards and draws nodes (g.node).
 
 To run it on your own machine (use a throwaway instance, never your real one):
 
-    npm ci && npm run build
+    npm ci && npm run package
     pip install -r scripts/ci/requirements_e2e.txt
     python -m playwright install --with-deps chromium webkit
-    mkdir -p /tmp/ha-e2e/www && cp kepler-card.js /tmp/ha-e2e/www/
+    mkdir -p /tmp/ha-e2e/www/community/kepler-card && cp kepler-card.js /tmp/ha-e2e/www/community/kepler-card/
     docker run -d --name ha-e2e -p 8123:8123 -v /tmp/ha-e2e:/config \\
         ghcr.io/home-assistant/home-assistant:$(cat ha-version.txt)
     python scripts/ci/ha_e2e.py run --url http://localhost:8123 --out /tmp/ha-e2e-out
     docker rm -f ha-e2e
 
-Home Assistant serves /config/www as /local, which is where the resource is loaded from. `run` saves a screenshot
-per browser into --out. Every failed check is printed as a GitHub `::error::` line.
+Home Assistant serves /config/www as /local, so the file above is loaded from the same path a Marketplace (HACS)
+install uses, with the ?v=<package.json version> query. `run` saves screenshots per browser and check into --out. Every failed check is printed as a GitHub `::error::` line.
 """
 
 from __future__ import annotations
@@ -36,7 +36,10 @@ import time
 DASHBOARD = "kepler-ci"
 VIEW = "map"
 ENTITY = "sensor.kepler_ci_tree"
-RESOURCE_URL = "/local/kepler-card.js"
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+VERSION = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
+# Where a Marketplace install puts the file (/config/www/community/kepler-card/kepler-card.js), plus the version query.
+RESOURCE_URL = f"/local/community/kepler-card/kepler-card.js?v={VERSION}"
 IN_ACTIONS = os.environ.get("GITHUB_ACTIONS") == "true"
 
 # A small made-up device tree: one root hub, one sub hub and a few devices.
@@ -232,6 +235,54 @@ CARD_STATE_JS = """(card) => {
 }"""
 
 
+# Finds an element by tag name anywhere on the page, going through shadow roots.
+FIND_TAG_JS = """(tag) => {
+  const seen = [document];
+  for (let i = 0; i < seen.length; i++) {
+    const root = seen[i];
+    if (root.querySelector(tag)) return true;
+    for (const el of root.querySelectorAll("*")) if (el.shadowRoot) seen.push(el.shadowRoot);
+  }
+  return false;
+}"""
+
+DARK_JS = """() => {
+  const ha = document.querySelector("home-assistant");
+  return !!(ha && ha.hass && ha.hass.themes && ha.hass.themes.darkMode);
+}"""
+
+
+async def wait_for_nodes(page, timeout: float = 30) -> dict:
+    """Wait for the card to draw nodes. Returns its state ({"nodes": 0} when it never did)."""
+    state: dict = {"nodes": 0}
+    try:
+        await page.locator("kepler-card").first.wait_for(state="attached", timeout=timeout * 1000)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            state = await page.locator("kepler-card").first.evaluate(CARD_STATE_JS)
+            if state["nodes"] >= 1:
+                break
+            await page.wait_for_timeout(500)
+    except Exception:  # noqa: BLE001
+        pass
+    return state
+
+
+async def check_render(page, engine: str, label: str, out: pathlib.Path) -> None:
+    """Card drawn nodes and no hui-error-card on the dashboard, then one screenshot named after the check."""
+    title = f"{engine} ({label}):"
+    state = await wait_for_nodes(page)
+    if state["nodes"] < 1:
+        fail(f"{title} no nodes", f"The card drew no g.node elements (svg present: {state.get('svg')})")
+    await page.wait_for_timeout(500)
+    if await page.evaluate(FIND_TAG_JS, "hui-error-card"):
+        fail(f"{title} error card", "The dashboard shows a hui-error-card")
+    out.mkdir(parents=True, exist_ok=True)
+    await page.screenshot(path=str(out / f"{engine}-{label}.png"))
+    if state["nodes"] >= 1:
+        summary.append(f"{engine}: {label} renders {state['nodes']} nodes, no error card")
+
+
 async def logged_in_page(browser, ha: HA):
     """A page logged in to Home Assistant, plus the console messages and page errors it collects."""
     context = await browser.new_context(viewport={"width": 1280, "height": 1100})
@@ -249,16 +300,18 @@ async def logged_in_page(browser, ha: HA):
     page = await context.new_page()
     console: list[tuple[str, str]] = []
     page_errors: list[str] = []
+    requests: list[str] = []
     page.on("console", lambda m: console.append((m.type, m.text)))
+    page.on("request", lambda r: requests.append(r.url))
     page.on("pageerror", lambda e: page_errors.append(f"{e.name}: {e.message}\n{e.stack or ''}"))
-    return page, console, page_errors
+    return page, console, page_errors, requests
 
 
 async def check_browser(pw, engine: str, ha: HA, out: pathlib.Path) -> None:
     title = f"{engine}:"
     browser = await getattr(pw, engine).launch()
     try:
-        page, console, page_errors = await logged_in_page(browser, ha)
+        page, console, page_errors, requests = await logged_in_page(browser, ha)
         await page.goto(f"{ha.url}/{DASHBOARD}/{VIEW}", wait_until="domcontentloaded")
         try:
             await page.wait_for_function("() => !!window.customElements.get('kepler-card')", timeout=30000)
@@ -301,6 +354,40 @@ async def check_browser(pw, engine: str, ha: HA, out: pathlib.Path) -> None:
         await page.wait_for_timeout(1000)
         out.mkdir(parents=True, exist_ok=True)
         await page.screenshot(path=str(out / f"{engine}.png"))
+
+        # The card itself: defined, no error card on the dashboard.
+        defined = await page.evaluate("() => !!window.customElements.get('kepler-card')")
+        if defined:
+            summary.append(f"{engine}: customElements.get('kepler-card') is defined")
+        if await page.evaluate(FIND_TAG_JS, "hui-error-card"):
+            fail(f"{title} error card", "The dashboard shows a hui-error-card")
+        else:
+            summary.append(f"{engine}: no hui-error-card")
+
+        # The URL the page actually requested must carry the version query.
+        loaded = [u for u in requests if "/kepler-card.js" in u]
+        want = f"/local/community/kepler-card/kepler-card.js?v={VERSION}"
+        if not any(want in u for u in loaded):
+            fail(f"{title} resource URL", f"Expected a request for {want}, the page loaded: {loaded or 'nothing'}")
+        else:
+            summary.append(f"{engine}: loaded {RESOURCE_URL}")
+
+        # A phone-width viewport.
+        await page.set_viewport_size({"width": 375, "height": 800})
+        await page.reload(wait_until="domcontentloaded")
+        await check_render(page, engine, "375px", out)
+
+        # Home Assistant's dark theme, set for the user through the frontend/set_user_data websocket command
+        # (the same thing the profile page's theme picker saves), then the page is reloaded to pick it up.
+        await page.set_viewport_size({"width": 1280, "height": 1100})
+        await ha.ws({"type": "frontend/set_user_data", "key": "selectedTheme", "value": {"theme": "default", "dark": True}})
+        await page.reload(wait_until="domcontentloaded")
+        try:
+            await page.wait_for_function(DARK_JS, timeout=30000)
+        except Exception:  # noqa: BLE001
+            fail(f"{title} dark theme", "Home Assistant never reported hass.themes.darkMode after setting the dark theme")
+        await check_render(page, engine, "dark", out)
+        await ha.ws({"type": "frontend/set_user_data", "key": "selectedTheme", "value": {"theme": "default", "dark": False}})
 
         for err in page_errors:
             if "kepler" in err.lower():

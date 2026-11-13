@@ -1,6 +1,6 @@
 name: E2E
 
-# Loads the built kepler-card.js into the real Home Assistant container and opens a dashboard with the card in
+# Loads the packaged kepler-card.js (at the Marketplace path /config/www/community/kepler-card/) into the real Home Assistant container and opens a dashboard with the card in
 # Chromium and WebKit. The logic lives in scripts/ci/ha_e2e.py so it can be run by hand too (see the top of it).
 
 on:
@@ -40,7 +40,8 @@ jobs:
           cache-dependency-path: scripts/ci/requirements_e2e.txt
       - run: pip install -r scripts/ci/requirements_e2e.txt
       - run: npm ci
-      - run: npm run build
+      # The packaged root kepler-card.js is what a Marketplace install gets. Nothing here downloads a release asset.
+      - run: npm run package
 
       - name: Pick the Home Assistant image
         id: image
@@ -53,8 +54,8 @@ jobs:
       - name: Start Home Assistant
         id: start
         run: |
-          mkdir -p ha-config/www e2e-artifacts
-          cp kepler-card.js ha-config/www/kepler-card.js
+          mkdir -p ha-config/www/community/kepler-card e2e-artifacts
+          cp kepler-card.js ha-config/www/community/kepler-card/kepler-card.js
           docker run -d --name ha-e2e -p 8123:8123 -e TZ=UTC \
             -v "$PWD/ha-config:/config" \
             ghcr.io/home-assistant/home-assistant:${{ steps.image.outputs.tag }}

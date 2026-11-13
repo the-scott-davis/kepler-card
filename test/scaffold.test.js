@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,12 +28,39 @@ test(".gitignore ignores the built file but not src/kepler-card.js", () => {
   assert.ok(execFileSync("git", ["--version"]).length > 0);
 });
 
-test("dist/kepler-card.js is committed (not ignored) and hacs.json installs from the release zip", () => {
+test("dist/kepler-card.js is committed (not ignored) and hacs.json names the release asset", () => {
   const ignored = spawnSync("git", ["check-ignore", "-q", "dist/kepler-card.js"], { cwd: root }).status === 0;
   assert.equal(ignored, false);
   const hacs = JSON.parse(readFileSync(join(root, "hacs.json"), "utf8"));
-  assert.equal(hacs.zip_release, true);
-  assert.equal(hacs.filename, "kepler-card.zip");
+  assert.equal("zip_release" in hacs, false);
+  assert.equal(hacs.filename, "kepler-card.js");
+});
+
+test("hacs.json filename is the file release.yml uploads", () => {
+  const hacs = JSON.parse(readFileSync(join(root, "hacs.json"), "utf8"));
+  const wf = readFileSync(join(root, ".github", "workflows", "release.yml"), "utf8");
+  const uploads = [...wf.matchAll(/gh release upload\s+"?\$TAG"?\s+(\S+)/g)].map((m) => m[1]);
+  assert.deepEqual(uploads, [hacs.filename]);
+  assert.doesNotMatch(wf, /\bzip\b/);
+});
+
+test("package check passes a real bundle and fails missing, empty and unregistered ones", async () => {
+  const { checkBundle } = await import("../scripts/package.js");
+  const dir = mkdtempSync(join(tmpdir(), "kepler-pkg-"));
+  try {
+    const good = join(dir, "good.js");
+    writeFileSync(good, 'customElements.define("kepler-card", class {});');
+    assert.deepEqual(checkBundle(good), []);
+    assert.equal(checkBundle(join(dir, "missing.js")).length, 1);
+    const empty = join(dir, "empty.js");
+    writeFileSync(empty, "");
+    assert.equal(checkBundle(empty).length, 1);
+    const other = join(dir, "other.js");
+    writeFileSync(other, 'console.log("hello");');
+    assert.equal(checkBundle(other).length, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("README images are relative docs/ paths that exist", async () => {

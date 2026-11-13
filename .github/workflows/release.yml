@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 jobs:
-  zip:
+  upload:
     runs-on: ubuntu-latest
     env:
       TAG: ${{ github.event.release.tag_name }}
@@ -27,22 +27,13 @@ jobs:
             exit 1
           fi
       - run: npm ci
-      - run: npm run build
-      - name: Zip kepler-card.js at the zip root
-        run: zip kepler-card.zip kepler-card.js
-      - name: Check the zip contents
-        run: |
-          unzip -l kepler-card.zip
-          if ! unzip -Z1 kepler-card.zip | grep -qx 'kepler-card.js'; then
-            echo "kepler-card.zip does not contain kepler-card.js at its root"
-            exit 1
-          fi
-      - name: Upload the zip to the release
-        run: gh release upload "$TAG" kepler-card.zip --clobber
+      - run: npm run package
+      - name: Upload kepler-card.js to the release
+        run: gh release upload "$TAG" kepler-card.js --clobber
       - name: Check the asset is on the release
         run: |
           gh release view "$TAG" --json assets --jq '.assets[].name' | tee assets.txt
-          if ! grep -qx 'kepler-card.zip' assets.txt; then
-            echo "kepler-card.zip is not listed on release $TAG"
+          if ! grep -qx 'kepler-card.js' assets.txt; then
+            echo "kepler-card.js is not listed on release $TAG"
             exit 1
           fi
