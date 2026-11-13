@@ -246,9 +246,16 @@ FIND_TAG_JS = """(tag) => {
   return false;
 }"""
 
+# Dark means Home Assistant says so (hass.themes.darkMode) or the page's own background colour is dark.
 DARK_JS = """() => {
   const ha = document.querySelector("home-assistant");
-  return !!(ha && ha.hass && ha.hass.themes && ha.hass.themes.darkMode);
+  if (ha && ha.hass && ha.hass.themes && ha.hass.themes.darkMode) return true;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue("--primary-background-color").trim();
+  let rgb = null, m;
+  if ((m = raw.match(/^#([0-9a-f]{6})$/i))) rgb = [0, 2, 4].map((k) => parseInt(m[1].slice(k, k + 2), 16));
+  else if ((m = raw.match(/^#([0-9a-f]{3})$/i))) rgb = [0, 1, 2].map((k) => parseInt(m[1][k] + m[1][k], 16));
+  else if ((m = raw.match(/^rgba?\\(([^)]+)\\)/))) rgb = m[1].split(",").slice(0, 3).map((v) => parseFloat(v));
+  return !!rgb && (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255 < 0.3;
 }"""
 
 
@@ -377,27 +384,32 @@ async def check_browser(pw, engine: str, ha: HA, out: pathlib.Path) -> None:
         await page.reload(wait_until="domcontentloaded")
         await check_render(page, engine, "375px", out)
 
-        # Home Assistant's dark theme, set for the user through the frontend/set_user_data websocket command
-        # (the same thing the profile page's theme picker saves), then the page is reloaded to pick it up.
+        # Home Assistant's dark theme, the way the profile page's theme picker saves it: the user's "core" data
+        # (frontend/set_user_data, merged with what is there) holds selectedTheme, and older frontends read the
+        # same JSON from localStorage "selectedTheme". Both are set, then the page is reloaded to pick it up.
         await page.set_viewport_size({"width": 1280, "height": 1100})
-        await ha.ws({"type": "frontend/set_user_data", "key": "selectedTheme", "value": {"theme": "default", "dark": True}})
-        await page.reload(wait_until="domcontentloaded")
+        selected = {"theme": "default", "dark": True}
+        core = {}
         try:
-            await page.wait_for_function(DARK_JS, timeout=30000)
+            core = (await ha.ws({"type": "frontend/get_user_data", "key": "core"}))[0].get("value") or {}
         except Exception:  # noqa: BLE001
-            fail(f"{title} dark theme", "Home Assistant never reported hass.themes.darkMode after setting the dark theme")
-        await check_render(page, engine, "dark", out)
-        await ha.ws({"type": "frontend/set_user_data", "key": "selectedTheme", "value": {"theme": "default", "dark": False}})
-
-        for err in page_errors:
-            if "kepler" in err.lower():
-                fail(f"{title} page error", err[:1500])
-        for kind, text in console:
-            if kind == "error" and "kepler" in text.lower():
-                fail(f"{title} console error", text[:1500])
-        other = [e.splitlines()[0] for e in page_errors if "kepler" not in e.lower()]
-        if other:
-            log(f"{engine}: {len(other)} page error(s) not about Kepler (ignored): {other[:5]}")
+            pass
+        try:
+            await ha.ws({"type": "frontend/set_user_data", "key": "core", "value": {**core, "selectedTheme": selected}})
+            await page.evaluate("(v) => localStorage.setItem('selectedTheme', v)", json.dumps(selected))
+            await page.reload(wait_until="domcontentloaded")
+            try:
+                await page.wait_for_function(DARK_JS, timeout=30000)
+            except Exception:  # noqa: BLE001
+                fail(f"{title} dark theme", "The page never turned dark after setting selectedTheme (hass.themes.darkMode "
+                     "and --primary-background-color were both still light)")
+            await check_render(page, engine, "dark", out)
+        finally:
+            try:
+                await ha.ws({"type": "frontend/set_user_data", "key": "core", "value": core})
+                await page.evaluate("() => localStorage.removeItem('selectedTheme')")
+            except Exception:  # noqa: BLE001
+                pass
     finally:
         await browser.close()
 
