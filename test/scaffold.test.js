@@ -27,11 +27,12 @@ test(".gitignore ignores the built file but not src/kepler-card.js", () => {
   assert.ok(execFileSync("git", ["--version"]).length > 0);
 });
 
-test("dist/kepler-card.js is committed (not ignored) and hacs.json names kepler-card.js", () => {
+test("dist/kepler-card.js is committed (not ignored) and hacs.json installs from the release zip", () => {
   const ignored = spawnSync("git", ["check-ignore", "-q", "dist/kepler-card.js"], { cwd: root }).status === 0;
   assert.equal(ignored, false);
   const hacs = JSON.parse(readFileSync(join(root, "hacs.json"), "utf8"));
-  assert.equal(hacs.filename, "kepler-card.js");
+  assert.equal(hacs.zip_release, true);
+  assert.equal(hacs.filename, "kepler-card.zip");
 });
 
 test("README images are relative docs/ paths that exist", async () => {
